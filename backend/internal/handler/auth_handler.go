@@ -10,8 +10,8 @@ import (
 )
 
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Identifier string `json:"identifier"`
+	Password   string `json:"password"`
 }
 
 func LoginHandler(conn *pgx.Conn) gin.HandlerFunc {
@@ -20,12 +20,19 @@ func LoginHandler(conn *pgx.Conn) gin.HandlerFunc {
 
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid request body",
+				"error": "invalid input",
 			})
 			return
 		}
 
-		token, err := service.Login(conn, req.Email, req.Password)
+		token, err := service.Login(
+			conn,
+			req.Identifier,
+			req.Password,
+			c.ClientIP(),
+			c.Request.UserAgent(),
+		)
+
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": err.Error(),
