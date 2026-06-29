@@ -1,20 +1,23 @@
 package repository
 
-import (
-	"context"
+import "gorm.io/gorm"
 
-	"github.com/jackc/pgx/v5"
-)
+type SystemParameter struct {
+	ParameterValue string `gorm:"column:parameter_value"`
+}
 
-func GetSystemParameter(conn *pgx.Conn, key string) (string, error) {
-	var value string
+func GetSystemParameter(
+	db *gorm.DB,
+	key string,
+) (string, error) {
 
-	query := `
-	SELECT parameter_value
-	FROM system_parameter
-	WHERE parameter_key = $1
-	`
+	var param SystemParameter
 
-	err := conn.QueryRow(context.Background(), query, key).Scan(&value)
-	return value, err
+	err := db.
+		Table("system_parameter").
+		Select("parameter_value").
+		Where("parameter_key = ?", key).
+		First(&param).Error
+
+	return param.ParameterValue, err
 }

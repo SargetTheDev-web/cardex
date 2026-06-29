@@ -1,9 +1,9 @@
 package main
 
 import (
-	"context"
 	"log"
 
+	"backend/internal/config"
 	"backend/internal/db"
 	"backend/internal/routes"
 
@@ -11,15 +11,15 @@ import (
 )
 
 func main() {
-	log.Println("MAIN FILE IS RUNNING")
+	config.LoadEnv()
+
 	conn, err := db.Connect()
 	if err != nil {
-		log.Fatal("Database connection failed:", err)
+		log.Fatal(err)
 	}
 
-	defer conn.Close(context.Background())
-
 	router := gin.Default()
+
 	routes.SetupRoutes(router, conn)
 
 	log.Println("Server running on port 8080")

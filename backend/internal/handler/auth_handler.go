@@ -6,7 +6,7 @@ import (
 	"backend/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
+	"gorm.io/gorm"
 )
 
 type LoginRequest struct {
@@ -14,7 +14,7 @@ type LoginRequest struct {
 	Password   string `json:"password"`
 }
 
-func LoginHandler(conn *pgx.Conn) gin.HandlerFunc {
+func LoginHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req LoginRequest
 
@@ -26,7 +26,7 @@ func LoginHandler(conn *pgx.Conn) gin.HandlerFunc {
 		}
 
 		token, err := service.Login(
-			conn,
+			db,
 			req.Identifier,
 			req.Password,
 			c.ClientIP(),

@@ -1,13 +1,9 @@
 package repository
 
-import (
-	"context"
-
-	"github.com/jackc/pgx/v5"
-)
+import "gorm.io/gorm"
 
 func InsertAuditLog(
-	conn *pgx.Conn,
+	db *gorm.DB,
 	userID *int,
 	actionID int,
 	moduleID int,
@@ -15,22 +11,16 @@ func InsertAuditLog(
 	ip string,
 	userAgent string,
 ) error {
-	query := `
-	INSERT INTO audit_log
-	(user_id, action_id, module_id, description, ip_address, user_agent)
-	VALUES ($1,$2,$3,$4,$5,$6)
-	`
-
-	_, err := conn.Exec(
-		context.Background(),
-		query,
+	return db.Exec(`
+		INSERT INTO audit_log
+		(user_id, action_id, module_id, description, ip_address, user_agent)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`,
 		userID,
 		actionID,
 		moduleID,
 		description,
 		ip,
 		userAgent,
-	)
-
-	return err
+	).Error
 }

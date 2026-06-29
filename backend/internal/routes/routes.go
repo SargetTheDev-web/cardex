@@ -5,17 +5,17 @@ import (
 	"backend/internal/middleware"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
+	"gorm.io/gorm"
 )
 
-func SetupRoutes(router *gin.Engine, conn *pgx.Conn) {
+func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	router.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "pong",
 		})
 	})
 
-	router.POST("/login", handler.LoginHandler(conn))
+	router.POST("/login", handler.LoginHandler(db))
 
 	protected := router.Group("/")
 	protected.Use(middleware.AuthMiddleware())
