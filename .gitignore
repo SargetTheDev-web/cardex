@@ -1,0 +1,17 @@
+# Environment variables
+.env
+.env.*
+
+# Go build output
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# IDE
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

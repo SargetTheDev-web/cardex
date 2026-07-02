@@ -1,3 +1,5 @@
+// internal/service/auth_service.go
+
 package service
 
 import (
@@ -26,7 +28,7 @@ func Login(
 
 	user, err := repository.GetUserByIdentifier(db, identifier)
 	if err != nil {
-		return "", errors.New("user not found")
+		return "", errors.New("invalid credentials")
 	}
 
 	maxAttemptsStr, _ := repository.GetSystemParameter(
@@ -81,7 +83,9 @@ func Login(
 	err = hash.CheckPassword(user.PasswordHash, password)
 
 	if err != nil {
-		_ = repository.IncrementLoginAttempts(db, user.UserID)
+		if err := repository.IncrementLoginAttempts(db, user.UserID); err != nil {
+			return "", err
+		}
 
 		_ = repository.InsertAuditLog(
 			db,
@@ -113,6 +117,20 @@ func Login(
 	_ = repository.ResetLoginAttempts(db, user.UserID)
 
 	jwtToken, err := token.GenerateJWT(user.UserID)
+
+	hashedToken := hash.HashToken(jwtToken)
+
+	sessionExpiry := time.Now().Add(24 * time.Hour)
+
+	err = repository.CreateSession(
+		db,
+		user.UserID,
+		hashedToken,
+		ip,
+		userAgent,
+		sessionExpiry,
+	)
+
 	if err != nil {
 		return "", err
 	}

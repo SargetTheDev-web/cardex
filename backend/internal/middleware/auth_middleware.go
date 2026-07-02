@@ -1,8 +1,12 @@
+// internal/middleware/auth_middleware.go
+
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -10,9 +14,9 @@ import (
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tokenString := c.GetHeader("Authorization")
+		authHeader := c.GetHeader("Authorization")
 
-		if tokenString == "" {
+		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": "missing token",
 			})
@@ -20,7 +24,23 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		parts := strings.Split(authHeader, " ")
+
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid authorization format",
+			})
+			c.Abort()
+			return
+		}
+
+		tokenString := parts[1]
+
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, errors.New("invalid signing method")
+			}
+
 			return []byte(os.Getenv("JWT_SECRET")), nil
 		})
 

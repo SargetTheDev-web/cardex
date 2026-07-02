@@ -1,3 +1,5 @@
+// internal/models/user.go
+
 package model
 
 import "time"

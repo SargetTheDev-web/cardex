@@ -1,5 +1,3 @@
-// internal/handler/auth_handler.go
-
 package handler
 
 import (
@@ -11,39 +9,37 @@ import (
 	"gorm.io/gorm"
 )
 
-type LoginRequest struct {
-	Identifier string `json:"identifier"`
-	Password   string `json:"password"`
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
 }
 
-func LoginHandler(db *gorm.DB) gin.HandlerFunc {
+func ForgotPasswordHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req LoginRequest
+		var req ForgotPasswordRequest
 
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid input",
+				"error": "invalid request",
 			})
 			return
 		}
 
-		token, err := service.Login(
+		err := service.RequestPasswordReset(
 			db,
-			req.Identifier,
-			req.Password,
+			req.Email,
 			c.ClientIP(),
 			c.Request.UserAgent(),
 		)
 
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
+			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"token": token,
+			"message": "password reset link sent",
 		})
 	}
 }

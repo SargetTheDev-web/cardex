@@ -1,3 +1,5 @@
+// internal/repository/audit_repository.go
+
 package repository
 
 import "gorm.io/gorm"

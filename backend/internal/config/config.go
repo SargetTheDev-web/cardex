@@ -1,3 +1,5 @@
+// internal/config/config.go
+
 package config
 
 import (
@@ -7,8 +9,7 @@ import (
 )
 
 func LoadEnv() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if err := godotenv.Load(); err != nil {
+		log.Println(".env not found, using system environment")
 	}
 }
