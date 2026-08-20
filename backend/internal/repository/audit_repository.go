@@ -26,3 +26,19 @@ func InsertAuditLog(
 		userAgent,
 	).Error
 }
+
+func GetAuditActionID(
+	db *gorm.DB,
+	actionCode string,
+) (int, error) {
+
+	var actionID int
+
+	err := db.
+		Table("audit_action").
+		Select("action_id").
+		Where("action_code = ?", actionCode).
+		Scan(&actionID).Error
+
+	return actionID, err
+}

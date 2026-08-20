@@ -25,8 +25,9 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	router.POST("/reset-password", handler.ResetPasswordHandler(db))
 
 	protected := router.Group("/")
-	protected.Use(middleware.AuthMiddleware())
+	protected.Use(middleware.AuthMiddleware(db))
 
+	protected.POST("/logout", handler.LogoutHandler(db))
 	protected.GET("/profile", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "authorized",

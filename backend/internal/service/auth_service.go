@@ -117,6 +117,9 @@ func Login(
 	_ = repository.ResetLoginAttempts(db, user.UserID)
 
 	jwtToken, err := token.GenerateJWT(user.UserID)
+	if err != nil {
+		return "", err
+	}
 
 	hashedToken := hash.HashToken(jwtToken)
 
