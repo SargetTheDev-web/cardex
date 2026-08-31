@@ -57,7 +57,6 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 			tokenString,
 			func(token *jwt.Token) (interface{}, error) {
 
-				// Only allow HMAC signing methods.
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, errors.New("invalid signing method")
 				}
@@ -106,9 +105,36 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		// --------------------------------------------------
-		// 4. Continue request
+		// 4. Extract authenticated user ID
 		// --------------------------------------------------
 
+		claims, ok := token.Claims.(jwt.MapClaims)
+
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid token claims",
+			})
+			c.Abort()
+			return
+		}
+
+		userIDFloat, ok := claims["user_id"].(float64)
+
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid user identity",
+			})
+			c.Abort()
+			return
+		}
+
+		userID := int(userIDFloat)
+
+		// --------------------------------------------------
+		// 5. Store authentication context
+		// --------------------------------------------------
+
+		c.Set("user_id", userID)
 		c.Set("token", tokenString)
 
 		c.Next()
