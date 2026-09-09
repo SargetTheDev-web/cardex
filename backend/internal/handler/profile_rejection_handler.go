@@ -1,3 +1,5 @@
+// internal/handler/profile_rejection_handler.go
+
 package handler
 
 import (
