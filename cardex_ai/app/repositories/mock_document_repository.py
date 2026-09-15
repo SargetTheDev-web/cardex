@@ -71,7 +71,7 @@ class MockDocumentRepository:
             ),
 
             Document(
-                document_id=5,
+                document_id=6,
                 title="How to improve your chess openings",
                 content=(
                     "Proper way on how to make your openings, "
