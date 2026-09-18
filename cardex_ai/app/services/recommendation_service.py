@@ -1,7 +1,7 @@
 from sentence_transformers import util
 
 from app.repositories.mock_document_repository import Document
-from app.schemas.recommendation import RecommendationItem
+from cardex_ai.app.schemas.recommendation import RecommendationItem
 
 
 class RecommendationService:
