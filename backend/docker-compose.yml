@@ -24,7 +24,7 @@ services:
         condition: service_healthy
 
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
 
     container_name: cardex-postgres
 
@@ -36,7 +36,7 @@ services:
       POSTGRES_DB: ${DB_NAME}
 
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+    - postgres_data:/var/lib/postgresql
 
     healthcheck:
       test:
