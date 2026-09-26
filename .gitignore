@@ -1,6 +1,8 @@
 # Environment variables
 .env
 .env.*
+cardex.dump
+*.log
 
 # Go build output
 *.exe
