@@ -38,6 +38,26 @@ func GetPendingProfileChange(
 	return &request, nil
 }
 
+// Get all pending profile change requests.
+// Used by administrators to review requests.
+func GetPendingProfileChangeRequests(
+	db *gorm.DB,
+) ([]model.ProfileChangeRequest, error) {
+
+	var requests []model.ProfileChangeRequest
+
+	err := db.
+		Where("status = ?", "PENDING").
+		Order("created_at ASC").
+		Find(&requests).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return requests, nil
+}
+
 func GetProfileChangeRequest(
 	db *gorm.DB,
 	changeRequestID int64,

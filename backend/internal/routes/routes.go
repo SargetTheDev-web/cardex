@@ -92,4 +92,9 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.RejectProfileChangeHandler(db),
 	)
 
+	protected.GET(
+		"/profile/change-requests",
+		handler.GetPendingProfileChangeRequestsHandler(db),
+	)
+
 }
