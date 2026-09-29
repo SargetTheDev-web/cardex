@@ -54,7 +54,25 @@ func RequestRegistration(
 		}
 	*/
 
-	existing, err := repository.GetLatestVerificationByEmail(db, email)
+	// Check if the email is already registered.
+	existingUser, err := repository.GetUserByIdentifier(
+		db,
+		email,
+	)
+
+	if err == nil && existingUser != nil {
+		return errors.New("email already in use")
+	}
+
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	// Check for an existing verification code.
+	existing, err := repository.GetLatestVerificationByEmail(
+		db,
+		email,
+	)
 
 	if err == nil {
 		if !existing.IsVerified && time.Now().Before(existing.ExpiresAt) {
@@ -69,6 +87,7 @@ func RequestRegistration(
 		}
 	}
 
+	// Generate a 6-digit verification code.
 	num, err := rand.Int(rand.Reader, big.NewInt(1000000))
 	if err != nil {
 		return err
@@ -77,6 +96,7 @@ func RequestRegistration(
 	code := fmt.Sprintf("%06d", num.Int64())
 	expiry := time.Now().Add(10 * time.Minute)
 
+	// Store verification code.
 	err = repository.CreateVerificationCode(
 		db,
 		email,
@@ -87,6 +107,7 @@ func RequestRegistration(
 		return err
 	}
 
+	// Send verification email.
 	err = mail.SendVerificationCode(email, code)
 	if err != nil {
 		return err
@@ -147,10 +168,30 @@ func CompleteRegistration(
 	userAgent string,
 ) error {
 
+	email = strings.TrimSpace(email)
+	username = strings.TrimSpace(username)
+
+	if email == "" {
+		return errors.New("email is required")
+	}
+
+	if username == "" {
+		return errors.New("username is required")
+	}
+
+	if password == "" {
+		return errors.New("password is required")
+	}
+
 	if password != confirmPassword {
 		return errors.New("passwords do not match")
 	}
 
+	if len(password) < 8 {
+		return errors.New("password must be at least 8 characters")
+	}
+
+	// Make sure the email was verified.
 	verification, err := repository.GetVerificationByEmail(
 		db,
 		email,
@@ -164,21 +205,36 @@ func CompleteRegistration(
 		return errors.New("email not verified")
 	}
 
-	existingEmail, _ := repository.GetUserByIdentifier(db, email)
-	if existingEmail != nil {
+	// Check if the email already exists.
+	existingEmail, err := repository.GetUserByIdentifier(
+		db,
+		email,
+	)
+
+	if err == nil && existingEmail != nil {
 		return errors.New("email already in use")
 	}
 
-	existingUsername, _ := repository.GetUserByIdentifier(db, username)
-	if existingUsername != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	// Check if the username already exists.
+	existingUsername, err := repository.GetUserByIdentifier(
+		db,
+		username,
+	)
+
+	if err == nil && existingUsername != nil {
 		return errors.New("username already in use")
 	}
 
-	hashedPassword, err := hash.HashPassword(password)
-	if len(password) < 8 {
-		return errors.New("password must be at least 8 characters")
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
 
+	// Hash the password only after validation passes.
+	hashedPassword, err := hash.HashPassword(password)
 	if err != nil {
 		return err
 	}
@@ -200,7 +256,6 @@ func CompleteRegistration(
 	}
 
 	err = repository.InsertAuditLog(
-
 		db,
 		&user.UserID,
 		1,
@@ -209,6 +264,9 @@ func CompleteRegistration(
 		ip,
 		userAgent,
 	)
+	if err != nil {
+		return err
+	}
 
 	err = repository.DeleteVerificationByEmail(db, email)
 	if err != nil {
