@@ -55,13 +55,22 @@ func RequestRegistration(
 	*/
 
 	// Check if the email is already registered.
+	fmt.Println("Checking registration email:", email)
+
 	existingUser, err := repository.GetUserByIdentifier(
 		db,
 		email,
 	)
 
+	fmt.Println("Existing user:", existingUser)
+	fmt.Println("Lookup error:", err)
+
 	if err == nil && existingUser != nil {
 		return errors.New("email already in use")
+	}
+
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
 
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
