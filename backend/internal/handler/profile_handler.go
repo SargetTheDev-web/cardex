@@ -96,3 +96,45 @@ func GetProfileChangeRequestHandler(
 		c.JSON(http.StatusOK, request)
 	}
 }
+
+func GetProfileHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		userIDValue, exists := c.Get("user_id")
+
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthorized",
+			})
+			return
+		}
+
+		userID, ok := userIDValue.(int)
+
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid user session",
+			})
+			return
+		}
+
+		user, profile, err := repository.GetUserProfile(
+			db,
+			userID,
+		)
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "profile not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"user_id":  user.UserID,
+			"username": user.Username,
+			"email":    user.EmailAddress,
+			"profile":  profile,
+		})
+	}
+}

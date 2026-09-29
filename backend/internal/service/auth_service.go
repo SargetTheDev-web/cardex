@@ -3,6 +3,7 @@
 package service
 
 import (
+	model "backend/internal/models"
 	"errors"
 	"strconv"
 	"strings"
@@ -15,20 +16,27 @@ import (
 	"gorm.io/gorm"
 )
 
+type LoginResult struct {
+	Token       string
+	User        *model.User
+	Role        *model.UserRole
+	Permissions []string
+}
+
 func Login(
 	db *gorm.DB,
 	identifier string,
 	password string,
 	ip string,
 	userAgent string,
-) (string, error) {
+) (*LoginResult, error) {
 
 	identifier = strings.TrimSpace(identifier)
 	password = strings.TrimSpace(password)
 
 	user, err := repository.GetUserByIdentifier(db, identifier)
 	if err != nil {
-		return "", errors.New("invalid credentials")
+		return nil, errors.New("invalid credentials")
 	}
 
 	maxAttemptsStr, _ := repository.GetSystemParameter(
@@ -54,37 +62,40 @@ func Login(
 			if time.Now().UTC().After(unlockTime.UTC()) {
 				err := repository.ResetLoginAttempts(db, user.UserID)
 				if err != nil {
-					return "", err
+					return nil, err
 				}
 
 				user.StatusID = 3
 				user.LoginRetryCount = 0
 			} else {
-				return "", errors.New("account still locked")
+				return nil, errors.New("account still locked")
 			}
 		}
 	}
 
 	switch user.StatusID {
 	case 1:
-		return "", errors.New("account inactive")
+		return nil, errors.New("account inactive")
 	case 2:
-		return "", errors.New("account pending approval")
+		return nil, errors.New("account pending approval")
 	case 5:
-		return "", errors.New("account locked")
+		return nil, errors.New("account locked")
 	case 8:
-		return "", errors.New("account suspended")
+		return nil, errors.New("account suspended")
 	}
 
 	if time.Now().After(user.ExpirationDate) {
-		return "", errors.New("account expired")
+		return nil, errors.New("account expired")
 	}
 
 	err = hash.CheckPassword(user.PasswordHash, password)
 
 	if err != nil {
-		if err := repository.IncrementLoginAttempts(db, user.UserID); err != nil {
-			return "", err
+		if err := repository.IncrementLoginAttempts(
+			db,
+			user.UserID,
+		); err != nil {
+			return nil, err
 		}
 
 		_ = repository.InsertAuditLog(
@@ -98,7 +109,10 @@ func Login(
 		)
 
 		if user.LoginRetryCount+1 >= maxAttempts {
-			_ = repository.LockAccount(db, user.UserID)
+			_ = repository.LockAccount(
+				db,
+				user.UserID,
+			)
 
 			_ = repository.InsertAuditLog(
 				db,
@@ -111,16 +125,21 @@ func Login(
 			)
 		}
 
-		return "", errors.New("invalid credentials")
+		return nil, errors.New("invalid credentials")
 	}
 
-	_ = repository.ResetLoginAttempts(db, user.UserID)
+	_ = repository.ResetLoginAttempts(
+		db,
+		user.UserID,
+	)
 
+	// Generate JWT
 	jwtToken, err := token.GenerateJWT(user.UserID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
+	// Hash JWT for server-side session storage
 	hashedToken := hash.HashToken(jwtToken)
 
 	sessionExpiry := time.Now().Add(24 * time.Hour)
@@ -135,7 +154,7 @@ func Login(
 	)
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	_ = repository.InsertAuditLog(
@@ -148,5 +167,30 @@ func Login(
 		userAgent,
 	)
 
-	return jwtToken, nil
+	// Get user's role
+	role, err := repository.GetUserRole(
+		db,
+		user.UserID,
+	)
+
+	if err != nil {
+		return nil, errors.New("failed to retrieve user role")
+	}
+
+	// Get role permissions
+	permissions, err := repository.GetRolePermissions(
+		db,
+		role.RoleID,
+	)
+
+	if err != nil {
+		return nil, errors.New("failed to retrieve permissions")
+	}
+
+	return &LoginResult{
+		Token:       jwtToken,
+		User:        user,
+		Role:        role,
+		Permissions: permissions,
+	}, nil
 }

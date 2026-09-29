@@ -41,23 +41,7 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 
 	protected := router.Group("/")
 	protected.Use(middleware.AuthMiddleware(db))
-
-	protected.GET("/profile", func(c *gin.Context) {
-
-		userID, exists := c.Get("user_id")
-
-		if !exists {
-			c.JSON(500, gin.H{
-				"error": "user_id not found in context",
-			})
-			return
-		}
-
-		c.JSON(200, gin.H{
-			"message": "authorized",
-			"user_id": userID,
-		})
-	})
+	protected.GET("/profile", handler.GetProfileHandler(db))
 
 	// --------------------------------------------------
 	// User profile
