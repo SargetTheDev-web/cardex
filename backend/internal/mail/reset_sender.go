@@ -1,3 +1,5 @@
+// internal/mail/reset_sender.go
+
 package mail
 
 import (
@@ -11,22 +13,34 @@ func SendResetLink(
 	link string,
 ) error {
 
-	from := os.Getenv("SMTP_EMAIL")
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+
+	login := os.Getenv("SMTP_EMAIL")
 	password := os.Getenv("SMTP_PASSWORD")
 
-	smtpHost := "smtp.gmail.com"
-	smtpPort := "587"
+	from := os.Getenv("SMTP_FROM_EMAIL")
+	fromName := os.Getenv("SMTP_FROM_NAME")
 
 	message := []byte(
 		fmt.Sprintf(
-			"Subject: CARDex Password Reset\r\n\r\nClick here to reset your password:\n%s",
+			"From: %s <%s>\r\n"+
+				"To: %s\r\n"+
+				"Subject: CARDex Password Reset\r\n"+
+				"MIME-Version: 1.0\r\n"+
+				"Content-Type: text/plain; charset=UTF-8\r\n"+
+				"\r\n"+
+				"Click here to reset your password:\r\n%s",
+			fromName,
+			from,
+			to,
 			link,
 		),
 	)
 
 	auth := smtp.PlainAuth(
 		"",
-		from,
+		login,
 		password,
 		smtpHost,
 	)

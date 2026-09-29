@@ -13,22 +13,34 @@ func SendVerificationCode(
 	code string,
 ) error {
 
-	from := os.Getenv("SMTP_EMAIL")
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+
+	login := os.Getenv("SMTP_EMAIL")
 	password := os.Getenv("SMTP_PASSWORD")
 
-	smtpHost := "smtp.gmail.com"
-	smtpPort := "587"
+	from := os.Getenv("SMTP_FROM_EMAIL")
+	fromName := os.Getenv("SMTP_FROM_NAME")
 
 	message := []byte(
 		fmt.Sprintf(
-			"Subject: CARDex Verification Code\r\n\r\nYour verification code is: %s",
+			"From: %s <%s>\r\n"+
+				"To: %s\r\n"+
+				"Subject: CARDex Verification Code\r\n"+
+				"MIME-Version: 1.0\r\n"+
+				"Content-Type: text/plain; charset=UTF-8\r\n"+
+				"\r\n"+
+				"Your verification code is: %s",
+			fromName,
+			from,
+			to,
 			code,
 		),
 	)
 
 	auth := smtp.PlainAuth(
 		"",
-		from,
+		login,
 		password,
 		smtpHost,
 	)
