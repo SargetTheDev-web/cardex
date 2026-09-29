@@ -57,11 +57,6 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.RequestProfileUpdateHandler(db),
 	)
 
-	protected.GET(
-		"/profile/change-request",
-		handler.GetProfileChangeRequestHandler(db),
-	)
-
 	// ADMIN ONLY
 	admin := protected.Group("/")
 	admin.Use(middleware.RequireAdmin(db))
@@ -80,5 +75,4 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		"/profile/change-requests",
 		handler.GetPendingProfileChangeRequestsHandler(db),
 	)
-
 }
