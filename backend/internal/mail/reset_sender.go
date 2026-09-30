@@ -42,15 +42,9 @@ func SendResetLink(
 	const htmlTemplate = `
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reset Your Password - CARDex Smart Library</title>
 </head>
 
@@ -62,235 +56,226 @@ func SendResetLink(
     -webkit-font-smoothing: antialiased;
 ">
 
-<table
-    role="presentation"
-    width="100%"
-    cellspacing="0"
-    cellpadding="0"
-    border="0"
-    style="background-color: #f4f6f9; padding: 40px 0;"
->
+<table role="presentation"
+       width="100%"
+       cellspacing="0"
+       cellpadding="0"
+       border="0"
+       style="
+           background-color: #f4f6f9;
+           padding: 40px 0;
+       ">
+
     <tr>
         <td align="center">
 
-            <table
-                role="presentation"
-                width="100%"
-                style="
-                    max-width: 560px;
-                    background-color: #ffffff;
-                    border-radius: 8px;
-                    overflow: hidden;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-                "
-                cellspacing="0"
-                cellpadding="0"
-                border="0"
-            >
+            <!-- Main Card -->
+            <table role="presentation"
+                   width="100%"
+                   cellspacing="0"
+                   cellpadding="0"
+                   border="0"
+                   style="
+                       max-width: 560px;
+                       background-color: #ffffff;
+                       border-radius: 10px;
+                       overflow: hidden;
+                       box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+                   ">
 
                 <!-- Header -->
-
                 <tr>
-                    <td
-                        style="
-                            background-color: #5750F1;
-                            padding: 30px;
-                            text-align: center;
-                        "
-                    >
+                    <td style="
+                        background-color: #5750F1;
+                        padding: 32px 30px;
+                        text-align: center;
+                    ">
 
-                        <h1
-                            style="
-                                color: #ffffff;
-                                margin: 0;
-                                font-size: 22px;
-                                font-weight: 700;
-                                letter-spacing: 0.5px;
-                            "
-                        >
+                        <h1 style="
+                            color: #ffffff;
+                            margin: 0;
+                            font-size: 23px;
+                            font-weight: 700;
+                            letter-spacing: 0.5px;
+                        ">
                             CARDex Smart Library
                         </h1>
 
-                        <p
-                            style="
-                                color: #e0e0ff;
-                                margin: 5px 0 0 0;
-                                font-size: 13px;
-                            "
-                        >
+                        <p style="
+                            color: #e4e3ff;
+                            margin: 7px 0 0 0;
+                            font-size: 13px;
+                        ">
                             Centralized Academic Resource Database & Exchange
                         </p>
 
                     </td>
                 </tr>
 
-                <!-- Body -->
-
+                <!-- Content -->
                 <tr>
-                    <td
-                        style="
-                            padding: 40px 30px;
-                            color: #333333;
-                            font-size: 15px;
-                            line-height: 1.6;
-                        "
-                    >
+                    <td style="
+                        padding: 40px 32px;
+                        color: #333333;
+                        font-size: 15px;
+                        line-height: 1.6;
+                    ">
 
-                        <h2
-                            style="
-                                color: #1c2434;
-                                font-size: 18px;
-                                margin-top: 0;
-                                margin-bottom: 16px;
-                            "
-                        >
+                        <h2 style="
+                            color: #1c2434;
+                            font-size: 20px;
+                            margin: 0 0 18px 0;
+                        ">
                             Password Reset Request
                         </h2>
 
-                        <p style="margin-bottom: 20px;">
+                        <p style="
+                            margin: 0 0 18px 0;
+                        ">
                             We received a request to reset the password
-                            associated with your account.
+                            associated with your CARDex account.
                         </p>
 
-                        <p>
-                            Click the button below to set a new password:
+                        <p style="
+                            margin: 0 0 22px 0;
+                        ">
+                            To continue, copy the secure reset link below
+                            and open it in your browser.
                         </p>
 
-                        <table
-                            role="presentation"
-                            cellspacing="0"
-                            cellpadding="0"
-                            border="0"
-                            style="margin: 30px auto;"
-                        >
+                        <!-- Reset Link Box -->
+                        <table role="presentation"
+                               width="100%"
+                               cellspacing="0"
+                               cellpadding="0"
+                               border="0"
+                               style="
+                                   background-color: #f8f9ff;
+                                   border: 1px solid #dedcff;
+                                   border-radius: 8px;
+                               ">
 
                             <tr>
+                                <td style="padding: 20px;">
 
-                                <td
-                                    align="center"
-                                    style="
-                                        border-radius: 6px;
-                                        background-color: #5750F1;
-                                    "
-                                >
+                                    <p style="
+                                        margin: 0 0 8px 0;
+                                        color: #5750F1;
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                        text-transform: uppercase;
+                                        letter-spacing: 0.6px;
+                                    ">
+                                        Secure Reset Link
+                                    </p>
 
-                                    <a
-                                        href="{{.ResetURL}}"
-                                        target="_blank"
-                                        style="
-                                            display: inline-block;
-                                            padding: 14px 28px;
-                                            font-size: 15px;
-                                            color: #ffffff;
-                                            font-weight: 600;
-                                            text-decoration: none;
-                                            border-radius: 6px;
-                                        "
-                                    >
-                                        Reset Password
-                                    </a>
+                                    <p style="
+                                        margin: 0;
+                                        color: #334155;
+                                        font-size: 13px;
+                                        line-height: 1.7;
+                                        word-break: break-all;
+                                    ">
+                                        {{.ResetURL}}
+                                    </p>
 
                                 </td>
-
                             </tr>
 
                         </table>
 
-                        <p
-                            style="
-                                margin-bottom: 20px;
-                                font-size: 14px;
-                                color: #64748b;
-                            "
-                        >
-                            This link is valid for
-                            <strong>15 minutes</strong>.
-                        </p>
+                        <!-- Expiration Notice -->
+                        <table role="presentation"
+                               width="100%"
+                               cellspacing="0"
+                               cellpadding="0"
+                               border="0"
+                               style="
+                                   margin-top: 20px;
+                                   background-color: #fff8e7;
+                                   border: 1px solid #f3dfaa;
+                                   border-radius: 7px;
+                               ">
 
-                        <p
-                            style="
-                                font-size: 14px;
-                                color: #64748b;
-                            "
-                        >
+                            <tr>
+                                <td style="
+                                    padding: 14px 16px;
+                                    color: #795b16;
+                                    font-size: 13px;
+                                    line-height: 1.5;
+                                ">
+
+                                    <strong>This link expires in 15 minutes.</strong>
+                                    <br>
+                                    Please request a new password reset link
+                                    if the current one expires.
+
+                                </td>
+                            </tr>
+
+                        </table>
+
+                        <p style="
+                            margin: 24px 0 0 0;
+                            font-size: 14px;
+                            color: #64748b;
+                        ">
                             If you did not request a password reset,
                             you can safely ignore this email.
                         </p>
 
-                        <hr
-                            style="
-                                border: none;
-                                border-top: 1px solid #e2e8f0;
-                                margin: 30px 0;
-                            "
-                        />
+                        <!-- Divider -->
+                        <hr style="
+                            border: none;
+                            border-top: 1px solid #e2e8f0;
+                            margin: 30px 0;
+                        ">
 
-                        <p
-                            style="
-                                font-size: 12px;
-                                color: #94a3b8;
-                                word-break: break-all;
-                                margin: 0;
-                            "
-                        >
-                            If the button above does not work,
-                            copy and paste this URL into your browser:
-                            <br><br>
-
-                            <a
-                                href="{{.ResetURL}}"
-                                style="
-                                    color: #5750F1;
-                                    text-decoration: underline;
-                                "
-                            >
-                                {{.ResetURL}}
-                            </a>
-
+                        <p style="
+                            margin: 0;
+                            font-size: 12px;
+                            color: #94a3b8;
+                            line-height: 1.5;
+                        ">
+                            For your security, never share this reset link
+                            with anyone else.
                         </p>
 
                     </td>
                 </tr>
 
                 <!-- Footer -->
-
                 <tr>
+                    <td style="
+                        background-color: #f8fafc;
+                        padding: 20px 30px;
+                        text-align: center;
+                        border-top: 1px solid #e2e8f0;
+                    ">
 
-                    <td
-                        style="
-                            background-color: #f8fafc;
-                            padding: 20px 30px;
-                            text-align: center;
-                            border-top: 1px solid #e2e8f0;
-                        "
-                    >
-
-                        <p
-                            style="
-                                font-size: 12px;
-                                color: #94a3b8;
-                                margin: 0;
-                            "
-                        >
+                        <p style="
+                            font-size: 12px;
+                            color: #94a3b8;
+                            margin: 0;
+                        ">
                             &copy; {{.CurrentYear}}
                             CARDex Smart Library.
                             All rights reserved.
                         </p>
 
                     </td>
-
                 </tr>
 
             </table>
 
         </td>
     </tr>
+
 </table>
 
 </body>
 </html>
 `
-
 	tmpl, err := template.New(
 		"password-reset",
 	).Parse(htmlTemplate)
