@@ -25,6 +25,8 @@ RUN apk --no-cache add ca-certificates
 
 COPY --from=builder /app/cardex-api /app/cardex-api
 
+COPY --from=builder /app/web ./web
+
 EXPOSE 8080
 
 USER 65532:65532

@@ -26,6 +26,8 @@ func main() {
 
 	router := gin.Default()
 
+	router.LoadHTMLGlob("web/templates/*")
+
 	router.Use(cors.New(cors.Config{
 		AllowOrigins: []string{
 			"http://localhost:3000",

@@ -22,6 +22,7 @@ func RequestPasswordReset(
 	ip string,
 	userAgent string,
 ) error {
+
 	email = strings.TrimSpace(email)
 
 	user, err := repository.GetUserByIdentifier(db, email)
@@ -38,19 +39,54 @@ func RequestPasswordReset(
 		"exp":     time.Now().Add(15 * time.Minute).Unix(),
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token := jwt.NewWithClaims(
+		jwt.SigningMethodHS256,
+		claims,
+	)
 
-	resetToken, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	jwtSecret := os.Getenv("JWT_SECRET")
+
+	if jwtSecret == "" {
+		return errors.New("JWT_SECRET is not configured")
+	}
+
+	resetToken, err := token.SignedString(
+		[]byte(jwtSecret),
+	)
+
 	if err != nil {
 		return err
 	}
 
+	/*
+		PASSWORD_RESET_URL should point to the Go API.
+
+		Local:
+		http://localhost:8080/auth/reset-password
+
+		Production:
+		https://cardex-api-ltzc.onrender.com/auth/reset-password
+	*/
+
+	resetBaseURL := strings.TrimRight(
+		os.Getenv("PASSWORD_RESET_URL"),
+		"/",
+	)
+
+	if resetBaseURL == "" {
+		return errors.New("PASSWORD_RESET_URL is not configured")
+	}
+
 	resetLink := fmt.Sprintf(
-		"http://localhost:3000/reset-password?token=%s",
+		"%s?token=%s",
+		resetBaseURL,
 		resetToken,
 	)
 
-	err = repository.InsertAuditLog(
+	/*
+		Audit the request.
+	*/
+	if err := repository.InsertAuditLog(
 		db,
 		&user.UserID,
 		3,
@@ -58,13 +94,17 @@ func RequestPasswordReset(
 		"Password reset request",
 		ip,
 		userAgent,
-	)
-	err = mail.SendResetLink(
+	); err != nil {
+		return err
+	}
+
+	/*
+		Send the reset email.
+	*/
+	if err := mail.SendResetLink(
 		email,
 		resetLink,
-	)
-
-	if err != nil {
+	); err != nil {
 		return err
 	}
 

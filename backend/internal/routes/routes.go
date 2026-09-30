@@ -25,15 +25,23 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	router.POST("/register/verify", handler.VerifyCodeHandler(db))
 	router.POST("/register/complete", handler.CompleteRegistrationHandler(db))
 
-	router.POST(
-		"/forgot-password",
-		handler.ForgotPasswordHandler(db),
-	)
+	auth := router.Group("/auth")
+	{
+		auth.POST(
+			"/forgot-password",
+			handler.ForgotPasswordHandler(db),
+		)
 
-	router.POST(
-		"/reset-password",
-		handler.ResetPasswordHandler(db),
-	)
+		auth.GET(
+			"/reset-password",
+			handler.ShowResetPasswordHandler(),
+		)
+
+		auth.POST(
+			"/reset-password",
+			handler.ResetPasswordHandler(db),
+		)
+	}
 
 	// --------------------------------------------------
 	// Authenticated routes
