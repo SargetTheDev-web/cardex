@@ -24,7 +24,8 @@ func CompleteRegistrationHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid request",
+				"status": http.StatusBadRequest,
+				"error":  "invalid request",
 			})
 			return
 		}
@@ -41,12 +42,14 @@ func CompleteRegistrationHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
+				"status": http.StatusBadRequest,
+				"error":  err.Error(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		c.JSON(http.StatusCreated, gin.H{
+			"status":  http.StatusCreated,
 			"message": "registration successful",
 		})
 	}

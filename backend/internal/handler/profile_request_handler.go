@@ -1,3 +1,5 @@
+// internal/handler/get_pending_profile_change_requests_handler.go
+
 package handler
 
 import (
@@ -21,12 +23,14 @@ func GetPendingProfileChangeRequestsHandler(
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err.Error(),
+				"status": http.StatusInternalServerError,
+				"error":  err.Error(),
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
+			"status":   http.StatusOK,
 			"requests": requests,
 			"count":    len(requests),
 		})

@@ -79,7 +79,6 @@ func ResetPasswordHandler(db *gorm.DB) gin.HandlerFunc {
 		)
 
 		if err != nil {
-
 			c.HTML(
 				http.StatusBadRequest,
 				"reset_password.html",

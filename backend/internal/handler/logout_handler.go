@@ -1,3 +1,5 @@
+// internal/handler/logout_handler.go
+
 package handler
 
 import (
@@ -17,7 +19,8 @@ func LogoutHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "missing authorization token",
+				"status": http.StatusUnauthorized,
+				"error":  "missing authorization token",
 			})
 			return
 		}
@@ -26,7 +29,8 @@ func LogoutHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid authorization header",
+				"status": http.StatusUnauthorized,
+				"error":  "invalid authorization header",
 			})
 			return
 		}
@@ -35,7 +39,8 @@ func LogoutHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if tokenString == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "missing token",
+				"status": http.StatusUnauthorized,
+				"error":  "missing token",
 			})
 			return
 		}
@@ -49,12 +54,14 @@ func LogoutHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": err.Error(),
+				"status": http.StatusUnauthorized,
+				"error":  err.Error(),
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
+			"status":  http.StatusOK,
 			"message": "logout successful",
 		})
 	}

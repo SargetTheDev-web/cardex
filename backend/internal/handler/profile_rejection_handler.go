@@ -32,7 +32,8 @@ func RejectProfileChangeHandler(
 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid change request ID",
+				"status": http.StatusBadRequest,
+				"error":  "invalid change request ID",
 			})
 			return
 		}
@@ -41,7 +42,8 @@ func RejectProfileChangeHandler(
 
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
+				"status": http.StatusUnauthorized,
+				"error":  "unauthorized",
 			})
 			return
 		}
@@ -50,7 +52,8 @@ func RejectProfileChangeHandler(
 
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid admin session",
+				"status": http.StatusUnauthorized,
+				"error":  "invalid admin session",
 			})
 			return
 		}
@@ -59,7 +62,8 @@ func RejectProfileChangeHandler(
 
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "rejection reason is required",
+				"status": http.StatusBadRequest,
+				"error":  "rejection reason is required",
 			})
 			return
 		}
@@ -75,12 +79,14 @@ func RejectProfileChangeHandler(
 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
+				"status": http.StatusBadRequest,
+				"error":  err.Error(),
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
+			"status":  http.StatusOK,
 			"message": "profile change request rejected",
 		})
 	}

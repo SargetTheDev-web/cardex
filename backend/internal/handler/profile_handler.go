@@ -1,3 +1,5 @@
+// internal/handler/profile_handler.go
+
 package handler
 
 import (
@@ -20,7 +22,8 @@ func RequestProfileUpdateHandler(
 
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
+				"status": http.StatusUnauthorized,
+				"error":  "unauthorized",
 			})
 			return
 		}
@@ -29,7 +32,8 @@ func RequestProfileUpdateHandler(
 
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid user session",
+				"status": http.StatusUnauthorized,
+				"error":  "invalid user session",
 			})
 			return
 		}
@@ -38,7 +42,8 @@ func RequestProfileUpdateHandler(
 
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid request",
+				"status": http.StatusBadRequest,
+				"error":  "invalid request",
 			})
 			return
 		}
@@ -53,12 +58,14 @@ func RequestProfileUpdateHandler(
 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
+				"status": http.StatusBadRequest,
+				"error":  err.Error(),
 			})
 			return
 		}
 
 		c.JSON(http.StatusAccepted, gin.H{
+			"status":  http.StatusAccepted,
 			"message": "profile changes submitted for admin approval",
 		})
 	}
@@ -74,12 +81,21 @@ func GetProfileChangeRequestHandler(
 
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
+				"status": http.StatusUnauthorized,
+				"error":  "unauthorized",
 			})
 			return
 		}
 
-		userID := userIDValue.(int)
+		userID, ok := userIDValue.(int)
+
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status": http.StatusUnauthorized,
+				"error":  "invalid user session",
+			})
+			return
+		}
 
 		request, err := repository.GetPendingProfileChange(
 			db,
@@ -88,12 +104,16 @@ func GetProfileChangeRequestHandler(
 
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{
+				"status":  http.StatusNotFound,
 				"message": "no pending profile changes",
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, request)
+		c.JSON(http.StatusOK, gin.H{
+			"status":  http.StatusOK,
+			"request": request,
+		})
 	}
 }
 
@@ -104,7 +124,8 @@ func GetProfileHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
+				"status": http.StatusUnauthorized,
+				"error":  "unauthorized",
 			})
 			return
 		}
@@ -113,7 +134,8 @@ func GetProfileHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid user session",
+				"status": http.StatusUnauthorized,
+				"error":  "invalid user session",
 			})
 			return
 		}
@@ -125,12 +147,14 @@ func GetProfileHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{
-				"error": "profile not found",
+				"status": http.StatusNotFound,
+				"error":  "profile not found",
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
+			"status":   http.StatusOK,
 			"user_id":  user.UserID,
 			"username": user.Username,
 			"email":    user.EmailAddress,

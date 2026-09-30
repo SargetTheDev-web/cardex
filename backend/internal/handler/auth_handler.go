@@ -24,7 +24,8 @@ func LoginHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid input",
+				"status": http.StatusBadRequest,
+				"error":  "invalid input",
 			})
 			return
 		}
@@ -39,7 +40,8 @@ func LoginHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": err.Error(),
+				"status": http.StatusUnauthorized,
+				"error":  err.Error(),
 			})
 			return
 		}
@@ -72,6 +74,7 @@ func LoginHandler(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
+			"status":      http.StatusOK,
 			"token":       result.Token,
 			"id":          result.User.UserID,
 			"username":    result.User.Username,

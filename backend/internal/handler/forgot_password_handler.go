@@ -1,3 +1,5 @@
+// internal/handler/forgot_password_handler.go
+
 package handler
 
 import (
@@ -19,7 +21,8 @@ func ForgotPasswordHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid request",
+				"status": http.StatusBadRequest,
+				"error":  "invalid request",
 			})
 			return
 		}
@@ -33,12 +36,14 @@ func ForgotPasswordHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
+				"status": http.StatusBadRequest,
+				"error":  err.Error(),
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
+			"status":  http.StatusOK,
 			"message": "password reset link sent",
 		})
 	}
