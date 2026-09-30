@@ -82,6 +82,7 @@ func RequestPasswordReset(
 		resetBaseURL,
 		resetToken,
 	)
+	fmt.Println("RESET LINK:", resetLink)
 
 	/*
 		Audit the request.
