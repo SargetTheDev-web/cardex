@@ -1,9 +1,12 @@
+// internal/middleware/auth_middleware.go
+
 package middleware
 
 import (
 	"errors"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"backend/internal/repository"
@@ -99,6 +102,64 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 		if !sessionExists {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": "session has been invalidated",
+			})
+			c.Abort()
+			return
+		}
+
+		idleTimeoutStr, err := repository.GetSystemParameter(
+			db,
+			"USER_IDLE_TIMEOUT_MINS",
+		)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to retrieve session timeout configuration",
+			})
+			c.Abort()
+			return
+		}
+
+		idleTimeoutMinutes, err := strconv.Atoi(idleTimeoutStr)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "invalid session timeout configuration",
+			})
+			c.Abort()
+			return
+		}
+
+		idle, err := repository.IsSessionIdle(
+			db,
+			tokenHash,
+			idleTimeoutMinutes,
+		)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to validate session activity",
+			})
+			c.Abort()
+			return
+		}
+
+		if idle {
+			_ = repository.DeleteSessionByToken(db, tokenHash)
+
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "session expired due to inactivity",
+			})
+			c.Abort()
+			return
+		}
+
+		if err := repository.UpdateSessionActivity(
+			db,
+			tokenHash,
+		); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to update session activity",
 			})
 			c.Abort()
 			return

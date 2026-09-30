@@ -9,7 +9,7 @@ func IncrementLoginAttempts(
 	userID int,
 ) error {
 	return db.
-		Table("user").
+		Table(`"user"`).
 		Where("user_id = ?", userID).
 		Update(
 			"login_retry_count",
@@ -22,7 +22,7 @@ func ResetLoginAttempts(
 	userID int,
 ) error {
 	return db.
-		Table("user").
+		Table(`"user"`).
 		Where("user_id = ?", userID).
 		Updates(map[string]interface{}{
 			"login_retry_count": 0,
@@ -36,7 +36,7 @@ func LockAccount(
 	userID int,
 ) error {
 	return db.
-		Table("user").
+		Table(`"user"`).
 		Where("user_id = ?", userID).
 		Updates(map[string]interface{}{
 			"status_id":      5,

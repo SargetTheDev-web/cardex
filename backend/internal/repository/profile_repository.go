@@ -1,4 +1,4 @@
-// internal/repository/profile_repository_go
+// internal/repository/profile_repository.go
 
 package repository
 

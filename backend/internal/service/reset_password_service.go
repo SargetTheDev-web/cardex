@@ -121,6 +121,7 @@ func ResetPassword(
 		This invalidates old reset tokens whenever
 		the user's password changes.
 	*/
+
 	currentHashBytes := sha256.Sum256(
 		[]byte(user.PasswordHash),
 	)

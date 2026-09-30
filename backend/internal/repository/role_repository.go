@@ -11,7 +11,15 @@ func GetUserRole(db *gorm.DB, userID int) (*model.UserRole, error) {
 
 	err := db.
 		Table("user_role ur").
-		Select("ur.role_id, ur.role_code, ur.role_name").
+		Select(`
+			ur.role_id,
+			ur.role_code,
+			ur.role_name,
+			ur.is_active,
+			ur.description,
+			ur.created_by,
+			ur.updated_by
+		`).
 		Joins(`JOIN "user" u ON u.role_id = ur.role_id`).
 		Where("u.user_id = ?", userID).
 		First(&role).Error

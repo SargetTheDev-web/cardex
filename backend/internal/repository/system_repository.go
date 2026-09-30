@@ -1,5 +1,3 @@
-// internal/repository/system_repository.go
-
 package repository
 
 import "gorm.io/gorm"

@@ -66,3 +66,41 @@ func SessionExists(
 
 	return count > 0, nil
 }
+
+func IsSessionIdle(
+	db *gorm.DB,
+	tokenHash string,
+	idleTimeoutMinutes int,
+) (bool, error) {
+
+	var lastActivity time.Time
+
+	err := db.
+		Table("user_session").
+		Select("last_activity").
+		Where("session_token = ?", tokenHash).
+		Scan(&lastActivity).Error
+
+	if err != nil {
+		return false, err
+	}
+
+	idleLimit := lastActivity.Add(
+		time.Duration(idleTimeoutMinutes) * time.Minute,
+	)
+
+	return time.Now().UTC().After(idleLimit.UTC()), nil
+}
+
+// Refresh the session's last activity timestamp.
+func UpdateSessionActivity(
+	db *gorm.DB,
+	tokenHash string,
+) error {
+
+	return db.
+		Table("user_session").
+		Where("session_token = ?", tokenHash).
+		Update("last_activity", time.Now().UTC()).
+		Error
+}

@@ -38,7 +38,7 @@ func GetAuditActionID(
 		Table("audit_action").
 		Select("action_id").
 		Where("action_code = ?", actionCode).
-		Scan(&actionID).Error
+		First(&actionID).Error
 
 	return actionID, err
 }

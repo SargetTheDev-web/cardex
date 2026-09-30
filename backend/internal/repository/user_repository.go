@@ -1,5 +1,3 @@
-// internal/repository/user_repository.go
-
 package repository
 
 import (
@@ -16,6 +14,7 @@ func GetUserByIdentifier(
 	var user model.User
 
 	err := db.
+		Table(`"user"`).
 		Where(
 			"email_address = ? OR username = ?",
 			identifier,
@@ -34,7 +33,9 @@ func CreateUser(
 	db *gorm.DB,
 	user *model.User,
 ) error {
-	return db.Create(user).Error
+	return db.
+		Table(`"user"`).
+		Create(user).Error
 }
 
 func GetUserByID(
@@ -45,6 +46,7 @@ func GetUserByID(
 	var user model.User
 
 	err := db.
+		Table(`"user"`).
 		Where("user_id = ?", userID).
 		First(&user).Error
 
@@ -61,7 +63,7 @@ func UpdatePassword(
 	newHash string,
 ) error {
 	return db.
-		Table("user").
+		Table(`"user"`).
 		Where("user_id = ?", userID).
 		Update("password_hash", newHash).Error
 }

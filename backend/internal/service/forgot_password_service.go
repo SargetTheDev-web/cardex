@@ -58,16 +58,6 @@ func RequestPasswordReset(
 		return err
 	}
 
-	/*
-		PASSWORD_RESET_URL should point to the Go API.
-
-		Local:
-		http://localhost:8080/auth/reset-password
-
-		Production:
-		https://cardex-api-ltzc.onrender.com/auth/reset-password
-	*/
-
 	resetBaseURL := strings.TrimRight(
 		os.Getenv("PASSWORD_RESET_URL"),
 		"/",
@@ -82,11 +72,9 @@ func RequestPasswordReset(
 		resetBaseURL,
 		resetToken,
 	)
+
 	fmt.Println("RESET LINK:", resetLink)
 
-	/*
-		Audit the request.
-	*/
 	if err := repository.InsertAuditLog(
 		db,
 		&user.UserID,
@@ -99,9 +87,6 @@ func RequestPasswordReset(
 		return err
 	}
 
-	/*
-		Send the reset email.
-	*/
 	if err := mail.SendResetLink(
 		email,
 		resetLink,

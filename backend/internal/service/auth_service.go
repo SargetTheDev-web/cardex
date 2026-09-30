@@ -1,5 +1,3 @@
-// internal/service/auth_service.go
-
 package service
 
 import (
@@ -46,6 +44,10 @@ func Login(
 
 	maxAttempts, _ := strconv.Atoi(maxAttemptsStr)
 
+	// --------------------------------------------------
+	// 1. Handle temporary account lock
+	// --------------------------------------------------
+
 	if user.StatusID == 5 {
 		lockDurationStr, _ := repository.GetSystemParameter(
 			db,
@@ -60,7 +62,11 @@ func Login(
 			)
 
 			if time.Now().UTC().After(unlockTime.UTC()) {
-				err := repository.ResetLoginAttempts(db, user.UserID)
+				err := repository.ResetLoginAttempts(
+					db,
+					user.UserID,
+				)
+
 				if err != nil {
 					return nil, err
 				}
@@ -73,24 +79,44 @@ func Login(
 		}
 	}
 
-	switch user.StatusID {
-	case 1:
-		return nil, errors.New("account inactive")
-	case 2:
-		return nil, errors.New("account pending approval")
-	case 5:
-		return nil, errors.New("account locked")
-	case 8:
-		return nil, errors.New("account suspended")
+	// --------------------------------------------------
+	// 2. Check account status
+	// --------------------------------------------------
+
+	status, err := repository.GetUserStatus(
+		db,
+		user.StatusID,
+	)
+
+	if err != nil {
+		return nil, errors.New("failed to retrieve account status")
 	}
 
-	if time.Now().After(user.ExpirationDate) {
+	if !status.IsAllowedLogin {
+		return nil, errors.New("account login not allowed")
+	}
+
+	// --------------------------------------------------
+	// 3. Check account expiration
+	// --------------------------------------------------
+
+	if !user.ExpirationDate.IsZero() &&
+		time.Now().After(user.ExpirationDate) {
+
 		return nil, errors.New("account expired")
 	}
 
-	err = hash.CheckPassword(user.PasswordHash, password)
+	// --------------------------------------------------
+	// 4. Verify password
+	// --------------------------------------------------
+
+	err = hash.CheckPassword(
+		user.PasswordHash,
+		password,
+	)
 
 	if err != nil {
+
 		if err := repository.IncrementLoginAttempts(
 			db,
 			user.UserID,
@@ -109,6 +135,7 @@ func Login(
 		)
 
 		if user.LoginRetryCount+1 >= maxAttempts {
+
 			_ = repository.LockAccount(
 				db,
 				user.UserID,
@@ -128,21 +155,36 @@ func Login(
 		return nil, errors.New("invalid credentials")
 	}
 
+	// --------------------------------------------------
+	// 5. Reset login retry counter
+	// --------------------------------------------------
+
 	_ = repository.ResetLoginAttempts(
 		db,
 		user.UserID,
 	)
 
-	// Generate JWT
-	jwtToken, err := token.GenerateJWT(user.UserID)
+	// --------------------------------------------------
+	// 6. Generate JWT
+	// --------------------------------------------------
+
+	jwtToken, err := token.GenerateJWT(
+		user.UserID,
+	)
+
 	if err != nil {
 		return nil, err
 	}
 
-	// Hash JWT for server-side session storage
+	// --------------------------------------------------
+	// 7. Hash JWT for server-side session storage
+	// --------------------------------------------------
+
 	hashedToken := hash.HashToken(jwtToken)
 
-	sessionExpiry := time.Now().Add(24 * time.Hour)
+	sessionExpiry := time.Now().Add(
+		24 * time.Hour,
+	)
 
 	err = repository.CreateSession(
 		db,
@@ -157,6 +199,10 @@ func Login(
 		return nil, err
 	}
 
+	// --------------------------------------------------
+	// 8. Audit successful login
+	// --------------------------------------------------
+
 	_ = repository.InsertAuditLog(
 		db,
 		&user.UserID,
@@ -167,7 +213,10 @@ func Login(
 		userAgent,
 	)
 
-	// Get user's role
+	// --------------------------------------------------
+	// 9. Get user's role
+	// --------------------------------------------------
+
 	role, err := repository.GetUserRole(
 		db,
 		user.UserID,
@@ -177,7 +226,10 @@ func Login(
 		return nil, errors.New("failed to retrieve user role")
 	}
 
-	// Get role permissions
+	// --------------------------------------------------
+	// 10. Get role permissions
+	// --------------------------------------------------
+
 	permissions, err := repository.GetRolePermissions(
 		db,
 		role.RoleID,
