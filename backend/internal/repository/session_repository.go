@@ -32,7 +32,7 @@ func DeleteSessionByToken(
 	result := db.
 		Table("user_session").
 		Where("session_token = ?", tokenHash).
-		Delete(nil)
+		Delete(map[string]interface{}{})
 
 	if result.Error != nil {
 		return result.Error

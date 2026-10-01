@@ -1,3 +1,5 @@
+// internal/service/logout_service.go
+
 package service
 
 import (
