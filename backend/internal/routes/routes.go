@@ -32,11 +32,6 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 			handler.ForgotPasswordHandler(db),
 		)
 
-		auth.GET(
-			"/reset-password",
-			handler.ShowResetPasswordHandler(),
-		)
-
 		auth.POST(
 			"/reset-password",
 			handler.ResetPasswordHandler(db),
