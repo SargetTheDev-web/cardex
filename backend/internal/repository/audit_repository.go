@@ -32,13 +32,19 @@ func GetAuditActionID(
 	actionCode string,
 ) (int, error) {
 
-	var actionID int
+	var result struct {
+		ActionID int `gorm:"column:action_id"`
+	}
 
 	err := db.
 		Table("audit_action").
 		Select("action_id").
 		Where("action_code = ?", actionCode).
-		First(&actionID).Error
+		First(&result).Error
 
-	return actionID, err
+	if err != nil {
+		return 0, err
+	}
+
+	return result.ActionID, nil
 }
