@@ -75,11 +75,35 @@ func ApproveProfileChange(
 			)
 		}
 
-		// --------------------------------------------------
-		// First profile creation
-		// --------------------------------------------------
+		// ==================================================
+		// INITIAL PROFILE CREATION
+		// ==================================================
 
 		if !profileExists {
+
+			// --------------------------------------------------
+			// Validate initial registration data
+			// --------------------------------------------------
+
+			if user.RoleID != RoleGuest {
+				return errors.New(
+					"invalid role for initial profile approval",
+				)
+			}
+
+			if request.RequestedRoleID == nil {
+				return errors.New(
+					"requested role is missing",
+				)
+			}
+
+			if *request.RequestedRoleID != RoleStudent &&
+				*request.RequestedRoleID != RoleFaculty {
+
+				return errors.New(
+					"invalid requested role",
+				)
+			}
 
 			if request.InstitutionalID == nil ||
 				request.LastName == nil ||
@@ -90,6 +114,34 @@ func ApproveProfileChange(
 				)
 			}
 
+			if request.PINHash == nil {
+				return errors.New(
+					"PIN is missing",
+				)
+			}
+
+			// --------------------------------------------------
+			// Course validation
+			// --------------------------------------------------
+
+			// Students must have a course.
+			if *request.RequestedRoleID == RoleStudent &&
+				request.Course == nil {
+
+				return errors.New(
+					"course is required for student registration",
+				)
+			}
+
+			// Faculty members do not require a course.
+			if *request.RequestedRoleID == RoleFaculty {
+				request.Course = nil
+			}
+
+			// --------------------------------------------------
+			// Create user profile
+			// --------------------------------------------------
+
 			profile = &model.UserProfile{
 				UserID:          request.UserID,
 				InstitutionalID: *request.InstitutionalID,
@@ -97,8 +149,10 @@ func ApproveProfileChange(
 				FirstName:       *request.FirstName,
 				MiddleName:      request.MiddleName,
 				SuffixExtension: request.SuffixExtension,
+				Course:          request.Course,
 				MobileNumber:    request.MobileNumber,
 				BirthDate:       request.BirthDate,
+				CreatedBy:       &adminID,
 			}
 
 			if err := repository.CreateUserProfile(
@@ -108,13 +162,33 @@ func ApproveProfileChange(
 				return err
 			}
 
+			// --------------------------------------------------
+			// Activate requested role and save PIN
+			// --------------------------------------------------
+
+			if err := repository.UpdateUserAccount(
+				tx,
+				request.UserID,
+				map[string]interface{}{
+					"role_id":    *request.RequestedRoleID,
+					"pin_hash":   *request.PINHash,
+					"updated_by": adminID,
+				},
+			); err != nil {
+				return err
+			}
+
 		} else {
 
-			// --------------------------------------------------
-			// Existing profile update
-			// --------------------------------------------------
+			// ==================================================
+			// EXISTING PROFILE UPDATE
+			// ==================================================
 
 			updates := make(map[string]interface{})
+
+			// --------------------------------------------------
+			// Profile fields
+			// --------------------------------------------------
 
 			if request.InstitutionalID != nil {
 				updates["institutional_id"] =
@@ -141,6 +215,11 @@ func ApproveProfileChange(
 					*request.SuffixExtension
 			}
 
+			if request.Course != nil {
+				updates["course"] =
+					*request.Course
+			}
+
 			if request.MobileNumber != nil {
 				updates["mobile_number"] =
 					*request.MobileNumber
@@ -151,7 +230,12 @@ func ApproveProfileChange(
 					*request.BirthDate
 			}
 
+			// --------------------------------------------------
+			// Apply profile updates
+			// --------------------------------------------------
+
 			if len(updates) > 0 {
+
 				updates["updated_by"] = adminID
 
 				if err := repository.UpdateUserProfile(
@@ -164,9 +248,9 @@ func ApproveProfileChange(
 			}
 		}
 
-		// --------------------------------------------------
-		// Update account information
-		// --------------------------------------------------
+		// ==================================================
+		// ACCOUNT INFORMATION
+		// ==================================================
 
 		accountUpdates := make(map[string]interface{})
 
@@ -181,6 +265,7 @@ func ApproveProfileChange(
 		}
 
 		if len(accountUpdates) > 0 {
+
 			accountUpdates["updated_by"] = adminID
 
 			if err := repository.UpdateUserAccount(
@@ -192,9 +277,9 @@ func ApproveProfileChange(
 			}
 		}
 
-		// --------------------------------------------------
-		// Mark request approved
-		// --------------------------------------------------
+		// ==================================================
+		// MARK REQUEST AS APPROVED
+		// ==================================================
 
 		now := time.Now()
 
@@ -221,9 +306,9 @@ func ApproveProfileChange(
 			)
 		}
 
-		// --------------------------------------------------
-		// Audit
-		// --------------------------------------------------
+		// ==================================================
+		// AUDIT LOG
+		// ==================================================
 
 		if err := repository.InsertAuditLog(
 			tx,

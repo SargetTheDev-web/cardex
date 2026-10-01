@@ -22,6 +22,7 @@ type ProfileUpdateRequest struct {
 	FirstName       *string `json:"first_name"`
 	MiddleName      *string `json:"middle_name"`
 	SuffixExtension *string `json:"suffix_extension"`
+	Course          *string `json:"course"`
 	MobileNumber    *string `json:"mobile_number"`
 	BirthDate       *string `json:"birth_date"`
 }
@@ -331,6 +332,31 @@ func RequestProfileUpdate(
 			if value != current {
 
 				change.SuffixExtension = &value
+				hasChanges = true
+			}
+		}
+
+		// --------------------------------------------------
+		// Course
+		// --------------------------------------------------
+
+		if req.Course != nil {
+
+			value := strings.TrimSpace(*req.Course)
+
+			current := ""
+
+			if profile != nil &&
+				profile.Course != nil {
+
+				current = strings.TrimSpace(
+					*profile.Course,
+				)
+			}
+
+			if value != current {
+
+				change.Course = &value
 				hasChanges = true
 			}
 		}

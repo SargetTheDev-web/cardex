@@ -16,6 +16,17 @@ type CompleteRegistrationRequest struct {
 	Username        string `json:"username"`
 	Password        string `json:"password"`
 	ConfirmPassword string `json:"confirm_password"`
+
+	Role            string `json:"role"`
+	InstitutionalID string `json:"institutional_id"`
+
+	LastName        string  `json:"last_name"`
+	FirstName       string  `json:"first_name"`
+	MiddleName      *string `json:"middle_name"`
+	SuffixExtension *string `json:"suffix_extension"`
+
+	Course string `json:"course"`
+	PIN    string `json:"pin"`
 }
 
 func CompleteRegistrationHandler(db *gorm.DB) gin.HandlerFunc {
@@ -36,10 +47,17 @@ func CompleteRegistrationHandler(db *gorm.DB) gin.HandlerFunc {
 			req.Username,
 			req.Password,
 			req.ConfirmPassword,
+			req.Role,
+			req.InstitutionalID,
+			req.LastName,
+			req.FirstName,
+			req.MiddleName,
+			req.SuffixExtension,
+			req.Course,
+			req.PIN,
 			c.ClientIP(),
 			c.Request.UserAgent(),
 		)
-
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status": http.StatusBadRequest,

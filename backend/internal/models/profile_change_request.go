@@ -1,3 +1,5 @@
+// internal/models/profile_change_request.go
+
 package model
 
 import "time"
@@ -10,13 +12,18 @@ type ProfileChangeRequest struct {
 	Username     *string `gorm:"column:username"`
 	EmailAddress *string `gorm:"column:email_address"`
 
+	RequestedRoleID *int `gorm:"column:requested_role_id" json:"-"`
+
 	InstitutionalID *string    `gorm:"column:institutional_id"`
 	LastName        *string    `gorm:"column:last_name"`
 	FirstName       *string    `gorm:"column:first_name"`
 	MiddleName      *string    `gorm:"column:middle_name"`
 	SuffixExtension *string    `gorm:"column:suffix_extension"`
+	Course          *string    `gorm:"column:course"`
 	MobileNumber    *string    `gorm:"column:mobile_number"`
 	BirthDate       *time.Time `gorm:"column:birth_date"`
+
+	PINHash *string `gorm:"column:pin_hash" json:"-"`
 
 	Status string `gorm:"column:status"`
 

@@ -1,3 +1,5 @@
+// internal/models/user_profile.go
+
 package model
 
 import "time"
@@ -13,6 +15,8 @@ type UserProfile struct {
 	FirstName       string  `gorm:"column:first_name;not null"`
 	MiddleName      *string `gorm:"column:middle_name"`
 	SuffixExtension *string `gorm:"column:suffix_extension"`
+
+	Course *string `gorm:"column:course"`
 
 	MobileNumber *string    `gorm:"column:mobile_number"`
 	BirthDate    *time.Time `gorm:"column:birth_date"`

@@ -1,3 +1,5 @@
+// internal/models/user_role.go
+
 package model
 
 type UserRole struct {

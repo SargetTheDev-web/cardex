@@ -38,7 +38,8 @@ func ResetPasswordHandler(db *gorm.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
+				"status": http.StatusBadRequest,
+				"error":  err.Error(),
 			})
 			return
 		}
