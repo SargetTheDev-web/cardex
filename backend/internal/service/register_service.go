@@ -222,6 +222,7 @@ func CompleteRegistration(
 	middleName *string,
 	suffixExtension *string,
 	course string,
+	mobileNumber *string,
 	pin string,
 	ip string,
 	userAgent string,
@@ -386,6 +387,16 @@ func CompleteRegistration(
 		}
 	}
 
+	if mobileNumber != nil {
+		value := strings.TrimSpace(*mobileNumber)
+
+		if value == "" {
+			mobileNumber = nil
+		} else {
+			mobileNumber = &value
+		}
+	}
+
 	// --------------------------------------------------
 	// Database transaction
 	// --------------------------------------------------
@@ -539,6 +550,7 @@ func CompleteRegistration(
 			FirstName:       &firstName,
 			MiddleName:      middleName,
 			SuffixExtension: suffixExtension,
+			MobileNumber:    mobileNumber,
 			PINHash:         &hashedPIN,
 			Status:          "PENDING",
 		}

@@ -25,8 +25,9 @@ type CompleteRegistrationRequest struct {
 	MiddleName      *string `json:"middle_name"`
 	SuffixExtension *string `json:"suffix_extension"`
 
-	Course string `json:"course"`
-	PIN    string `json:"pin"`
+	Course       string  `json:"course"`
+	MobileNumber *string `json:"mobile_number"`
+	PIN          string  `json:"pin"`
 }
 
 func CompleteRegistrationHandler(db *gorm.DB) gin.HandlerFunc {
@@ -54,6 +55,7 @@ func CompleteRegistrationHandler(db *gorm.DB) gin.HandlerFunc {
 			req.MiddleName,
 			req.SuffixExtension,
 			req.Course,
+			req.MobileNumber,
 			req.PIN,
 			c.ClientIP(),
 			c.Request.UserAgent(),
