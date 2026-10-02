@@ -64,6 +64,30 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	admin := protected.Group("/")
 	admin.Use(middleware.RequireAdmin(db))
 
+	// --------------------------------------------------
+	// User Management - ADMIN ONLY
+	// --------------------------------------------------
+
+	admin.GET(
+		"/users",
+		handler.GetUsersHandler(db),
+	)
+
+	admin.POST(
+		"/users",
+		handler.CreateUserHandler(db),
+	)
+
+	admin.PUT(
+		"/users/:id",
+		handler.UpdateUserHandler(db),
+	)
+
+	admin.PATCH(
+		"/users/:id/status",
+		handler.ChangeUserStatusHandler(db),
+	)
+
 	admin.POST(
 		"/profile/change-request/:id/approve",
 		handler.ApproveProfileChangeHandler(db),

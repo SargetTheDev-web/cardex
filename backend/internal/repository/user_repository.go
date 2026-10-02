@@ -147,3 +147,22 @@ func GetUserRoleID(
 
 	return user.RoleID, nil
 }
+
+func GetUserRoleByID(
+	db *gorm.DB,
+	roleID int,
+) (*model.UserRole, error) {
+
+	var role model.UserRole
+
+	err := db.
+		Table("user_role").
+		Where("role_id = ?", roleID).
+		First(&role).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &role, nil
+}
