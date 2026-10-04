@@ -1,3 +1,5 @@
+// internal/service/auth_service.go
+
 package service
 
 import (
@@ -15,10 +17,24 @@ import (
 )
 
 type LoginResult struct {
-	Token       string
-	User        *model.User
-	Role        *model.UserRole
-	Permissions []string
+	Token            string
+	TokenExpiresAt   time.Time
+	User             *model.User
+	Role             *model.UserRole
+	Permissions      []string
+	MaxLoginAttempts int
+}
+
+type LoginError struct {
+	Message               string
+	LoginRetryCount       int
+	MaxLoginAttempts      int
+	RemainingLoginRetries int
+	AccountLocked         bool
+}
+
+func (e *LoginError) Error() string {
+	return e.Message
 }
 
 func Login(
@@ -32,47 +48,69 @@ func Login(
 	identifier = strings.TrimSpace(identifier)
 	password = strings.TrimSpace(password)
 
+	// --------------------------------------------------
+	// 1. Get user
+	// --------------------------------------------------
+
 	user, err := repository.GetUserByIdentifier(db, identifier)
 	if err != nil {
+		// Keep this generic so we don't reveal whether
+		// the account exists.
 		return nil, errors.New("invalid credentials")
 	}
+
+	// --------------------------------------------------
+	// 2. Get maximum login retry count
+	// --------------------------------------------------
 
 	maxAttemptsStr, _ := repository.GetSystemParameter(
 		db,
 		"MAX_LOGIN_RETRY_COUNT",
 	)
 
-	maxAttempts, _ := strconv.Atoi(maxAttemptsStr)
+	maxAttempts, err := strconv.Atoi(maxAttemptsStr)
+	if err != nil || maxAttempts <= 0 {
+		return nil, errors.New("invalid login retry configuration")
+	}
 
 	// --------------------------------------------------
-	// 1. Handle temporary account lock
+	// 3. Handle temporary account lock
 	// --------------------------------------------------
 
 	if user.StatusID == 5 {
+
 		lockDurationStr, _ := repository.GetSystemParameter(
 			db,
 			"SECURITY_LOCKDOWN_MINS",
 		)
 
-		lockDuration, _ := strconv.Atoi(lockDurationStr)
+		lockDuration, err := strconv.Atoi(lockDurationStr)
+		if err != nil || lockDuration <= 0 {
+			return nil, errors.New(
+				"invalid security lockdown configuration",
+			)
+		}
 
 		if user.DateTimeLocked != nil {
+
 			unlockTime := user.DateTimeLocked.Add(
 				time.Duration(lockDuration) * time.Minute,
 			)
 
 			if time.Now().UTC().After(unlockTime.UTC()) {
-				err := repository.ResetLoginAttempts(
+
+				if err := repository.ResetLoginAttempts(
 					db,
 					user.UserID,
-				)
-
-				if err != nil {
+				); err != nil {
 					return nil, err
 				}
 
+				// Synchronize the in-memory user.
 				user.StatusID = 3
 				user.LoginRetryCount = 0
+				user.DateTimeLocked = nil
+
 			} else {
 				return nil, errors.New("account still locked")
 			}
@@ -80,7 +118,7 @@ func Login(
 	}
 
 	// --------------------------------------------------
-	// 2. Check account status
+	// 4. Check account status
 	// --------------------------------------------------
 
 	status, err := repository.GetUserStatus(
@@ -89,34 +127,37 @@ func Login(
 	)
 
 	if err != nil {
-		return nil, errors.New("failed to retrieve account status")
+		return nil, errors.New(
+			"failed to retrieve account status",
+		)
 	}
 
 	if !status.IsAllowedLogin {
-		return nil, errors.New("account login not allowed")
+		return nil, errors.New(
+			"account login not allowed",
+		)
 	}
 
 	// --------------------------------------------------
-	// 3. Check account expiration
+	// 5. Check account expiration
 	// --------------------------------------------------
 
 	if !user.ExpirationDate.IsZero() &&
-		time.Now().After(user.ExpirationDate) {
+		time.Now().UTC().After(user.ExpirationDate.UTC()) {
 
 		return nil, errors.New("account expired")
 	}
 
 	// --------------------------------------------------
-	// 4. Verify password
+	// 6. Verify password
 	// --------------------------------------------------
 
-	err = hash.CheckPassword(
+	if err := hash.CheckPassword(
 		user.PasswordHash,
 		password,
-	)
+	); err != nil {
 
-	if err != nil {
-
+		// Increment failed login attempts in the database.
 		if err := repository.IncrementLoginAttempts(
 			db,
 			user.UserID,
@@ -124,6 +165,12 @@ func Login(
 			return nil, err
 		}
 
+		// The database count has already been incremented,
+		// so calculate the new count from the previous
+		// in-memory value.
+		currentRetryCount := user.LoginRetryCount + 1
+
+		// Audit failed login.
 		_ = repository.InsertAuditLog(
 			db,
 			&user.UserID,
@@ -134,7 +181,11 @@ func Login(
 			userAgent,
 		)
 
-		if user.LoginRetryCount+1 >= maxAttempts {
+		// --------------------------------------------------
+		// Maximum retries reached
+		// --------------------------------------------------
+
+		if currentRetryCount >= maxAttempts {
 
 			_ = repository.LockAccount(
 				db,
@@ -150,25 +201,50 @@ func Login(
 				ip,
 				userAgent,
 			)
+
+			return nil, &LoginError{
+				Message:               "invalid credentials",
+				LoginRetryCount:       currentRetryCount,
+				MaxLoginAttempts:      maxAttempts,
+				RemainingLoginRetries: 0,
+				AccountLocked:         true,
+			}
 		}
 
-		return nil, errors.New("invalid credentials")
+		// --------------------------------------------------
+		// Failed login, retries remaining
+		// --------------------------------------------------
+
+		return nil, &LoginError{
+			Message:               "invalid credentials",
+			LoginRetryCount:       currentRetryCount,
+			MaxLoginAttempts:      maxAttempts,
+			RemainingLoginRetries: maxAttempts - currentRetryCount,
+			AccountLocked:         false,
+		}
 	}
 
 	// --------------------------------------------------
-	// 5. Reset login retry counter
+	// 7. Successful password verification
 	// --------------------------------------------------
 
-	_ = repository.ResetLoginAttempts(
+	if err := repository.ResetLoginAttempts(
 		db,
 		user.UserID,
-	)
+	); err != nil {
+		return nil, err
+	}
+
+	// Keep in-memory representation synchronized.
+	user.LoginRetryCount = 0
+	user.StatusID = 3
+	user.DateTimeLocked = nil
 
 	// --------------------------------------------------
-	// 6. Generate JWT
+	// 8. Generate JWT
 	// --------------------------------------------------
 
-	jwtToken, err := token.GenerateJWT(
+	jwtToken, tokenExpiresAt, err := token.GenerateJWT(
 		user.UserID,
 	)
 
@@ -177,30 +253,28 @@ func Login(
 	}
 
 	// --------------------------------------------------
-	// 7. Hash JWT for server-side session storage
+	// 9. Hash JWT for server-side session storage
 	// --------------------------------------------------
 
 	hashedToken := hash.HashToken(jwtToken)
 
-	sessionExpiry := time.Now().Add(
-		24 * time.Hour,
-	)
+	// Use the exact same expiration timestamp as
+	// the JWT.
+	sessionExpiry := tokenExpiresAt
 
-	err = repository.CreateSession(
+	if err := repository.CreateSession(
 		db,
 		user.UserID,
 		hashedToken,
 		ip,
 		userAgent,
 		sessionExpiry,
-	)
-
-	if err != nil {
+	); err != nil {
 		return nil, err
 	}
 
 	// --------------------------------------------------
-	// 8. Audit successful login
+	// 10. Audit successful login
 	// --------------------------------------------------
 
 	_ = repository.InsertAuditLog(
@@ -214,7 +288,7 @@ func Login(
 	)
 
 	// --------------------------------------------------
-	// 9. Get user's role
+	// 11. Get user's role
 	// --------------------------------------------------
 
 	role, err := repository.GetUserRole(
@@ -223,11 +297,13 @@ func Login(
 	)
 
 	if err != nil {
-		return nil, errors.New("failed to retrieve user role")
+		return nil, errors.New(
+			"failed to retrieve user role",
+		)
 	}
 
 	// --------------------------------------------------
-	// 10. Get role permissions
+	// 12. Get role permissions
 	// --------------------------------------------------
 
 	permissions, err := repository.GetRolePermissions(
@@ -236,13 +312,21 @@ func Login(
 	)
 
 	if err != nil {
-		return nil, errors.New("failed to retrieve permissions")
+		return nil, errors.New(
+			"failed to retrieve permissions",
+		)
 	}
 
+	// --------------------------------------------------
+	// 13. Return successful login result
+	// --------------------------------------------------
+
 	return &LoginResult{
-		Token:       jwtToken,
-		User:        user,
-		Role:        role,
-		Permissions: permissions,
+		Token:            jwtToken,
+		TokenExpiresAt:   tokenExpiresAt,
+		User:             user,
+		Role:             role,
+		Permissions:      permissions,
+		MaxLoginAttempts: maxAttempts,
 	}, nil
 }

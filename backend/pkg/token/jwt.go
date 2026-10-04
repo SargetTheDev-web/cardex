@@ -9,13 +9,31 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func GenerateJWT(userID int) (string, error) {
+const JWTExpiration = 24 * time.Hour
+
+func GenerateJWT(userID int) (string, time.Time, error) {
+
+	expiresAt := time.Now().UTC().Add(JWTExpiration)
+
 	claims := jwt.MapClaims{
 		"user_id": userID,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+		"iat":     time.Now().UTC().Unix(),
+		"exp":     expiresAt.Unix(),
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token := jwt.NewWithClaims(
+		jwt.SigningMethodHS256,
+		claims,
+	)
 
-	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	signedToken, err := token.SignedString(
+		[]byte(os.Getenv("JWT_SECRET")),
+	)
+
+	if err != nil {
+		return "", time.Time{}, err
+	}
+
+	return signedToken, expiresAt, nil
+
 }

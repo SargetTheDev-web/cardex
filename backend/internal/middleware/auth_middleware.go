@@ -24,7 +24,8 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "missing token",
+				"status": http.StatusUnauthorized,
+				"error":  "missing token",
 			})
 			c.Abort()
 			return
@@ -36,7 +37,8 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 			!strings.EqualFold(parts[0], "Bearer") {
 
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid authorization format",
+				"status": http.StatusUnauthorized,
+				"error":  "invalid authorization format",
 			})
 			c.Abort()
 			return
@@ -46,7 +48,8 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 
 		if tokenString == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "missing token",
+				"status": http.StatusUnauthorized,
+				"error":  "missing token",
 			})
 			c.Abort()
 			return
@@ -60,7 +63,8 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 			tokenString,
 			func(token *jwt.Token) (interface{}, error) {
 
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				// CARDex uses HS256 exclusively.
+				if token.Method != jwt.SigningMethodHS256 {
 					return nil, errors.New("invalid signing method")
 				}
 
@@ -70,7 +74,8 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 
 		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid token",
+				"status": http.StatusUnauthorized,
+				"error":  "invalid token",
 			})
 			c.Abort()
 			return
@@ -93,7 +98,8 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "failed to validate session",
+				"status": http.StatusInternalServerError,
+				"error":  "failed to validate session",
 			})
 			c.Abort()
 			return
@@ -101,11 +107,16 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 
 		if !sessionExists {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "session has been invalidated",
+				"status": http.StatusUnauthorized,
+				"error":  "session has been invalidated",
 			})
 			c.Abort()
 			return
 		}
+
+		// --------------------------------------------------
+		// 4. Retrieve idle timeout configuration
+		// --------------------------------------------------
 
 		idleTimeoutStr, err := repository.GetSystemParameter(
 			db,
@@ -114,7 +125,8 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "failed to retrieve session timeout configuration",
+				"status": http.StatusInternalServerError,
+				"error":  "failed to retrieve session timeout configuration",
 			})
 			c.Abort()
 			return
@@ -122,13 +134,18 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 
 		idleTimeoutMinutes, err := strconv.Atoi(idleTimeoutStr)
 
-		if err != nil {
+		if err != nil || idleTimeoutMinutes <= 0 {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "invalid session timeout configuration",
+				"status": http.StatusInternalServerError,
+				"error":  "invalid session timeout configuration",
 			})
 			c.Abort()
 			return
 		}
+
+		// --------------------------------------------------
+		// 5. Check session inactivity
+		// --------------------------------------------------
 
 		idle, err := repository.IsSessionIdle(
 			db,
@@ -138,42 +155,53 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "failed to validate session activity",
+				"status": http.StatusInternalServerError,
+				"error":  "failed to validate session activity",
 			})
 			c.Abort()
 			return
 		}
 
 		if idle {
-			_ = repository.DeleteSessionByToken(db, tokenHash)
+			_ = repository.DeleteSessionByToken(
+				db,
+				tokenHash,
+			)
 
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "session expired due to inactivity",
+				"status": http.StatusUnauthorized,
+				"error":  "session expired due to inactivity",
 			})
 			c.Abort()
 			return
 		}
+
+		// --------------------------------------------------
+		// 6. Update session activity
+		// --------------------------------------------------
 
 		if err := repository.UpdateSessionActivity(
 			db,
 			tokenHash,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "failed to update session activity",
+				"status": http.StatusInternalServerError,
+				"error":  "failed to update session activity",
 			})
 			c.Abort()
 			return
 		}
 
 		// --------------------------------------------------
-		// 4. Extract authenticated user ID
+		// 7. Extract authenticated user ID
 		// --------------------------------------------------
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid token claims",
+				"status": http.StatusUnauthorized,
+				"error":  "invalid token claims",
 			})
 			c.Abort()
 			return
@@ -183,7 +211,8 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid user identity",
+				"status": http.StatusUnauthorized,
+				"error":  "invalid user identity",
 			})
 			c.Abort()
 			return
@@ -192,7 +221,7 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 		userID := int(userIDFloat)
 
 		// --------------------------------------------------
-		// 5. Store authentication context
+		// 8. Store authentication context
 		// --------------------------------------------------
 
 		c.Set("user_id", userID)
