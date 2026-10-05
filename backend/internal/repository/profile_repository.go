@@ -4,34 +4,10 @@ package repository
 
 import (
 	model "backend/internal/models"
+	"errors"
 
 	"gorm.io/gorm"
 )
-
-func GetUserProfile(
-	db *gorm.DB,
-	userID int,
-) (*model.User, *model.UserProfile, error) {
-
-	var user model.User
-	var profile model.UserProfile
-
-	if err := db.
-		Table(`"user"`).
-		Where("user_id = ?", userID).
-		First(&user).Error; err != nil {
-		return nil, nil, err
-	}
-
-	if err := db.
-		Table("user_profile").
-		Where("user_id = ?", userID).
-		First(&profile).Error; err != nil {
-		return &user, nil, err
-	}
-
-	return &user, &profile, nil
-}
 
 func GetUserProfileByUserID(
 	db *gorm.DB,
@@ -81,4 +57,89 @@ func CreateUserProfile(
 	profile *model.UserProfile,
 ) error {
 	return db.Create(profile).Error
+}
+
+func GetUserProfile(
+	db *gorm.DB,
+	userID int,
+) (*model.User, *model.UserProfile, error) {
+
+	var user model.User
+
+	// --------------------------------------------------
+	// Get user account
+	// --------------------------------------------------
+
+	if err := db.
+		Table(`"user"`).
+		Where("user_id = ?", userID).
+		First(&user).Error; err != nil {
+
+		return nil, nil, err
+	}
+
+	// --------------------------------------------------
+	// Try to get approved/current profile
+	// --------------------------------------------------
+
+	var profile model.UserProfile
+
+	err := db.
+		Table("user_profile").
+		Where("user_id = ?", userID).
+		First(&profile).Error
+
+	if err == nil {
+		// Approved profile exists.
+		return &user, &profile, nil
+	}
+
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		// Actual database error.
+		return &user, nil, err
+	}
+
+	// --------------------------------------------------
+	// No approved profile yet.
+	//
+	// Check for a pending registration/profile request.
+	// --------------------------------------------------
+
+	request, requestErr := GetPendingProfileChange(
+		db,
+		userID,
+	)
+
+	if requestErr != nil {
+		// No profile and no pending request.
+		return &user, nil, gorm.ErrRecordNotFound
+	}
+
+	// --------------------------------------------------
+	// Build temporary profile from pending request
+	// --------------------------------------------------
+
+	profile = model.UserProfile{
+		UserID: userID,
+	}
+
+	if request.InstitutionalID != nil {
+		profile.InstitutionalID = *request.InstitutionalID
+	}
+
+	if request.LastName != nil {
+		profile.LastName = *request.LastName
+	}
+
+	if request.FirstName != nil {
+		profile.FirstName = *request.FirstName
+	}
+
+	profile.MiddleName = request.MiddleName
+	profile.SuffixExtension = request.SuffixExtension
+	profile.Course = request.Course
+	profile.MobileNumber = request.MobileNumber
+	profile.BirthDate = request.BirthDate
+
+	return &user, &profile, nil
 }
