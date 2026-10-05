@@ -31,9 +31,7 @@ func SendResetLink(
 		password == "" ||
 		from == "" {
 
-		return fmt.Errorf(
-			"SMTP configuration is incomplete",
-		)
+		return fmt.Errorf("SMTP configuration is incomplete")
 	}
 
 	/*
@@ -42,9 +40,11 @@ func SendResetLink(
 	const htmlTemplate = `
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Reset Your Password - CARDex Smart Library</title>
 </head>
 
@@ -106,7 +106,7 @@ func SendResetLink(
                             margin: 7px 0 0 0;
                             font-size: 13px;
                         ">
-                            Centralized Academic Resource Database & Exchange
+                            Centralized Academic Resource Database &amp; Exchange
                         </p>
 
                     </td>
@@ -137,13 +137,50 @@ func SendResetLink(
                         </p>
 
                         <p style="
-                            margin: 0 0 22px 0;
+                            margin: 0 0 24px 0;
                         ">
-                            To continue, copy the secure reset link below
-                            and open it in your browser.
+                            Click the button below to continue and create
+                            a new password.
                         </p>
 
-                        <!-- Reset Link Box -->
+                        <!-- Reset Password Button -->
+                        <table role="presentation"
+                               width="100%"
+                               cellspacing="0"
+                               cellpadding="0"
+                               border="0"
+                               style="
+                                   margin: 0 0 24px 0;
+                               ">
+
+                            <tr>
+                                <td align="center">
+
+                                    <!--
+                                        Normal HTML anchor styled as a button.
+                                        This is intentionally NOT a Brevo button.
+                                    -->
+                                    <a href="{{.ResetURL}}"
+                                       style="
+                                           display: inline-block;
+                                           background-color: #5750F1;
+                                           color: #ffffff;
+                                           text-decoration: none;
+                                           padding: 13px 30px;
+                                           border-radius: 7px;
+                                           font-size: 14px;
+                                           font-weight: 600;
+                                           line-height: 1.4;
+                                       ">
+                                        Reset Password
+                                    </a>
+
+                                </td>
+                            </tr>
+
+                        </table>
+
+                        <!-- Backup Link -->
                         <table role="presentation"
                                width="100%"
                                cellspacing="0"
@@ -156,7 +193,9 @@ func SendResetLink(
                                ">
 
                             <tr>
-                                <td style="padding: 20px;">
+                                <td style="
+                                    padding: 20px;
+                                ">
 
                                     <p style="
                                         margin: 0 0 8px 0;
@@ -166,13 +205,23 @@ func SendResetLink(
                                         text-transform: uppercase;
                                         letter-spacing: 0.6px;
                                     ">
-                                        Secure Reset Link
+                                        Alternative Reset Link
+                                    </p>
+
+                                    <p style="
+                                        margin: 0 0 8px 0;
+                                        color: #64748b;
+                                        font-size: 12px;
+                                        line-height: 1.5;
+                                    ">
+                                        If the button does not work,
+                                        copy and paste this link into your browser:
                                     </p>
 
                                     <p style="
                                         margin: 0;
                                         color: #334155;
-                                        font-size: 13px;
+                                        font-size: 12px;
                                         line-height: 1.7;
                                         word-break: break-all;
                                     ">
@@ -205,8 +254,12 @@ func SendResetLink(
                                     line-height: 1.5;
                                 ">
 
-                                    <strong>This link expires in 15 minutes.</strong>
+                                    <strong>
+                                        This link expires in 15 minutes.
+                                    </strong>
+
                                     <br>
+
                                     Please request a new password reset link
                                     if the current one expires.
 
@@ -276,6 +329,7 @@ func SendResetLink(
 </body>
 </html>
 `
+
 	tmpl, err := template.New(
 		"password-reset",
 	).Parse(htmlTemplate)
@@ -305,8 +359,12 @@ func SendResetLink(
 		Plain-text fallback.
 	*/
 	plainText := fmt.Sprintf(
-		"Reset your CARDex password using this link:\r\n\r\n%s\r\n\r\n"+
-			"This link expires in 15 minutes.",
+		"Reset your CARDex password using this link:\r\n\r\n"+
+			"%s\r\n\r\n"+
+			"This link expires in 15 minutes.\r\n\r\n"+
+			"If you did not request a password reset, "+
+			"you can safely ignore this email.\r\n\r\n"+
+			"Never share this reset link with anyone else.",
 		link,
 	)
 
