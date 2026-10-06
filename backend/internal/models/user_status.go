@@ -1,3 +1,5 @@
+// internal/models/user_status.go
+
 package model
 
 type UserStatus struct {

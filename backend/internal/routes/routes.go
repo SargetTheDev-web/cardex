@@ -60,6 +60,11 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.RequestProfileUpdateHandler(db),
 	)
 
+	protected.POST(
+		"/auth/change-password",
+		handler.ChangePasswordHandler(db),
+	)
+
 	// ADMIN ONLY
 	admin := protected.Group("/")
 	admin.Use(middleware.RequireAdmin(db))
@@ -98,7 +103,7 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.RejectProfileChangeHandler(db),
 	)
 
-	protected.GET(
+	admin.GET(
 		"/profile/change-requests",
 		handler.GetPendingProfileChangeRequestsHandler(db),
 	)
