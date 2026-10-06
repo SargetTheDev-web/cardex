@@ -65,6 +65,10 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.ChangePasswordHandler(db),
 	)
 
+	protected.POST("/auth/change-pin",
+		handler.ChangePINHandler(db),
+	)
+
 	// ADMIN ONLY
 	admin := protected.Group("/")
 	admin.Use(middleware.RequireAdmin(db))

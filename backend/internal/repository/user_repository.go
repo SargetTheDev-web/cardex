@@ -2,6 +2,7 @@ package repository
 
 import (
 	model "backend/internal/models"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -165,4 +166,13 @@ func GetUserRoleByID(
 	}
 
 	return &role, nil
+}
+
+func UpdatePIN(db *gorm.DB, userID int, pinHash string) error {
+	return db.Table("user").
+		Where("user_id = ?", userID).
+		Updates(map[string]interface{}{
+			"pin_hash":   pinHash,
+			"updated_at": time.Now(),
+		}).Error
 }
