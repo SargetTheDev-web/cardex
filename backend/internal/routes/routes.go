@@ -69,6 +69,16 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.ChangePINHandler(db),
 	)
 
+	protected.GET(
+		"/categories",
+		handler.GetCategoriesHandler(db),
+	)
+
+	protected.GET(
+		"/categories/:id",
+		handler.GetCategoryHandler(db),
+	)
+
 	// ADMIN ONLY
 	admin := protected.Group("/")
 	admin.Use(middleware.RequireAdmin(db))
@@ -110,5 +120,24 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	admin.GET(
 		"/profile/change-requests",
 		handler.GetPendingProfileChangeRequestsHandler(db),
+	)
+
+	// --------------------------------------------------
+	// Category Management - ADMIN ONLY
+	// --------------------------------------------------
+
+	admin.POST(
+		"/categories",
+		handler.CreateCategoryHandler(db),
+	)
+
+	admin.PUT(
+		"/categories/:id",
+		handler.UpdateCategoryHandler(db),
+	)
+
+	admin.DELETE(
+		"/categories/:id",
+		handler.DeleteCategoryHandler(db),
 	)
 }
