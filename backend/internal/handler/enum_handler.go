@@ -29,3 +29,22 @@ func GetCourseProgramsHandler(db *gorm.DB) gin.HandlerFunc {
 		})
 	}
 }
+
+func GetSuffixExtensionsHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		suffixes, err := service.GetSuffixExtensions(db)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  500,
+				"message": "Failed to retrieve suffix extensions",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  200,
+			"message": "Suffix extensions retrieved successfully",
+			"data":    suffixes,
+		})
+	}
+}

@@ -25,6 +25,7 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	router.POST("/register/verify", handler.VerifyCodeHandler(db))
 	router.POST("/register/complete", handler.CompleteRegistrationHandler(db))
 	router.GET("/enums/courses", handler.GetCourseProgramsHandler(db))
+	router.GET("/enums/suffixes", handler.GetSuffixExtensionsHandler(db))
 
 	auth := router.Group("/auth")
 	{

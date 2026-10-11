@@ -18,3 +18,12 @@ func GetCoursePrograms(db *gorm.DB) ([]string, error) {
 
 	return values, nil
 }
+
+func GetSuffixExtensions(db *gorm.DB) ([]string, error) {
+	values, err := repository.GetEnumValues(db, "suffix_extension")
+	if err != nil {
+		return nil, fmt.Errorf("get suffix extensions: %w", err)
+	}
+
+	return values, nil
+}
