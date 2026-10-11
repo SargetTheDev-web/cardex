@@ -79,6 +79,16 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.GetCategoryHandler(db),
 	)
 
+	protected.GET(
+		"/authors",
+		handler.GetAuthorsHandler(db),
+	)
+
+	protected.GET(
+		"/authors/:id",
+		handler.GetAuthorHandler(db),
+	)
+
 	// ADMIN ONLY
 	admin := protected.Group("/")
 	admin.Use(middleware.RequireAdmin(db))
@@ -139,5 +149,22 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	admin.DELETE(
 		"/categories/:id",
 		handler.DeleteCategoryHandler(db),
+	)
+
+	// --------------------------------------------------
+	// Author Management - ADMIN ONLY
+	// --------------------------------------------------
+
+	admin.POST(
+		"/authors",
+		handler.CreateAuthorHandler(db),
+	)
+
+	admin.PUT("/authors/:id",
+		handler.UpdateAuthorHandler(db),
+	)
+
+	admin.DELETE("/authors/:id",
+		handler.DeleteAuthorHandler(db),
 	)
 }
