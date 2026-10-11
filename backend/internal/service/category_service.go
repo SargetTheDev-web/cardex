@@ -4,6 +4,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	model "backend/internal/models"
@@ -12,27 +13,72 @@ import (
 	"gorm.io/gorm"
 )
 
-func CreateCategory(
-	db *gorm.DB,
+var ErrInvalidCategory = errors.New("invalid category")
+
+const categoryAuditModule = "CATALOG"
+
+func writeCategoryAudit(
+	tx *gorm.DB,
+	userID int,
+	actionCode string,
+	description string,
+	ip string,
+	userAgent string,
+) error {
+	actionID, err := repository.GetAuditActionID(tx, actionCode)
+	if err != nil {
+		return fmt.Errorf("get audit action ID: %w", err)
+	}
+
+	moduleID, err := repository.GetAuditModuleID(tx, categoryAuditModule)
+	if err != nil {
+		return fmt.Errorf("get audit module ID: %w", err)
+	}
+
+	return repository.InsertAuditLog(
+		tx,
+		&userID,
+		actionID,
+		moduleID,
+		description,
+		ip,
+		userAgent,
+	)
+}
+
+func validateCategory(
 	name string,
 	description string,
-) (*model.Category, error) {
-
+) (string, string, error) {
 	name = strings.TrimSpace(name)
 	description = strings.TrimSpace(description)
 
 	if name == "" {
-		return nil, errors.New("category name is required")
+		return "", "", fmt.Errorf("%w: category name is required", ErrInvalidCategory)
 	}
 
 	if len(name) > 100 {
-		return nil, errors.New("category name must not exceed 100 characters")
+		return "", "", fmt.Errorf("%w: category name must not exceed 100 characters", ErrInvalidCategory)
 	}
 
-	if len(description) > 0 {
-		if len(description) > 10000 {
-			return nil, errors.New("description is too long")
-		}
+	if len(description) > 10000 {
+		return "", "", fmt.Errorf("%w: description must not exceed 10000 characters", ErrInvalidCategory)
+	}
+
+	return name, description, nil
+}
+
+func CreateCategory(
+	db *gorm.DB,
+	name string,
+	description string,
+	userID int,
+	ip string,
+	userAgent string,
+) (*model.Category, error) {
+	name, description, err := validateCategory(name, description)
+	if err != nil {
+		return nil, err
 	}
 
 	category := &model.Category{
@@ -40,7 +86,27 @@ func CreateCategory(
 		Description:  description,
 	}
 
-	if err := repository.CreateCategory(db, category); err != nil {
+	err = db.Transaction(func(tx *gorm.DB) error {
+		if err := repository.CreateCategory(tx, category); err != nil {
+			return err
+		}
+
+		auditDescription := fmt.Sprintf(
+			"Created category: %s (ID: %d)",
+			category.CategoryName,
+			category.CategoryID,
+		)
+
+		return writeCategoryAudit(
+			tx,
+			userID,
+			"CREATE",
+			auditDescription,
+			ip,
+			userAgent,
+		)
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -55,7 +121,6 @@ func GetCategoryByID(
 	db *gorm.DB,
 	categoryID int,
 ) (model.Category, error) {
-
 	return repository.GetCategoryByID(db, categoryID)
 }
 
@@ -64,45 +129,90 @@ func UpdateCategory(
 	categoryID int,
 	name string,
 	description string,
+	userID int,
+	ip string,
+	userAgent string,
 ) (model.Category, error) {
-
-	name = strings.TrimSpace(name)
-	description = strings.TrimSpace(description)
-
-	if name == "" {
-		return model.Category{}, errors.New("category name is required")
-	}
-
-	if len(name) > 100 {
-		return model.Category{}, errors.New("category name must not exceed 100 characters")
-	}
-
-	if err := repository.UpdateCategory(
-		db,
-		categoryID,
-		name,
-		description,
-	); err != nil {
+	name, description, err := validateCategory(name, description)
+	if err != nil {
 		return model.Category{}, err
 	}
 
-	return repository.GetCategoryByID(db, categoryID)
+	var updatedCategory model.Category
+
+	err = db.Transaction(func(tx *gorm.DB) error {
+		oldCategory, err := repository.GetCategoryByID(tx, categoryID)
+		if err != nil {
+			return err
+		}
+
+		if err := repository.UpdateCategory(
+			tx,
+			categoryID,
+			name,
+			description,
+		); err != nil {
+			return err
+		}
+
+		updatedCategory, err = repository.GetCategoryByID(tx, categoryID)
+		if err != nil {
+			return err
+		}
+
+		auditDescription := fmt.Sprintf(
+			"Updated category ID %d: name '%s' to '%s'",
+			categoryID,
+			oldCategory.CategoryName,
+			updatedCategory.CategoryName,
+		)
+
+		return writeCategoryAudit(
+			tx,
+			userID,
+			"UPDATE",
+			auditDescription,
+			ip,
+			userAgent,
+		)
+	})
+	if err != nil {
+		return model.Category{}, err
+	}
+
+	return updatedCategory, nil
 }
 
 func DeleteCategory(
 	db *gorm.DB,
 	categoryID int,
+	userID int,
+	ip string,
+	userAgent string,
 ) error {
-
-	_, err := repository.GetCategoryByID(db, categoryID)
-
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("category not found")
+	return db.Transaction(func(tx *gorm.DB) error {
+		category, err := repository.GetCategoryByID(tx, categoryID)
+		if err != nil {
+			return err
 		}
 
-		return err
-	}
+		if err := repository.DeleteCategory(tx, categoryID); err != nil {
+			return err
+		}
 
-	return repository.DeleteCategory(db, categoryID)
+		auditDescription := fmt.Sprintf(
+			"Deleted category: %s (ID: %d)",
+			category.CategoryName,
+			category.CategoryID,
+		)
+
+		return writeCategoryAudit(
+			tx,
+			userID,
+			"DELETE",
+			auditDescription,
+			ip,
+			userAgent,
+		)
+	})
 }

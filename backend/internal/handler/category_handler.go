@@ -18,9 +18,55 @@ type CategoryRequest struct {
 	Description  string `json:"description"`
 }
 
+// Extract authenticated user ID and request metadata for auditing.
+func getCategoryAuditMetadata(c *gin.Context) (int, string, string, bool) {
+	userIDValue, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status": http.StatusUnauthorized,
+			"error":  "authenticated user ID not found",
+		})
+		return 0, "", "", false
+	}
+
+	userID, ok := userIDValue.(int)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": http.StatusInternalServerError,
+			"error":  "invalid authenticated user ID",
+		})
+		return 0, "", "", false
+	}
+
+	return userID, c.ClientIP(), c.Request.UserAgent(), true
+}
+
+// Convert service errors into appropriate HTTP responses.
+func respondCategoryMutationError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, service.ErrInvalidCategory):
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": http.StatusBadRequest,
+			"error":  err.Error(),
+		})
+
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		c.JSON(http.StatusNotFound, gin.H{
+			"status": http.StatusNotFound,
+			"error":  "category not found",
+		})
+
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": http.StatusInternalServerError,
+			"error":  "category operation failed",
+		})
+	}
+}
+
+// POST /categories
 func CreateCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		var req CategoryRequest
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -31,17 +77,21 @@ func CreateCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		userID, ip, userAgent, ok := getCategoryAuditMetadata(c)
+		if !ok {
+			return
+		}
+
 		category, err := service.CreateCategory(
 			db,
 			req.CategoryName,
 			req.Description,
+			userID,
+			ip,
+			userAgent,
 		)
-
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status": http.StatusBadRequest,
-				"error":  err.Error(),
-			})
+			respondCategoryMutationError(c, err)
 			return
 		}
 
@@ -53,11 +103,10 @@ func CreateCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+// GET /categories
 func GetCategoriesHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		categories, err := service.GetAllCategories(db)
-
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status": http.StatusInternalServerError,
@@ -73,11 +122,10 @@ func GetCategoriesHandler(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+// GET /categories/:id
 func GetCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		categoryID, err := strconv.Atoi(c.Param("id"))
-
 		if err != nil || categoryID <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status": http.StatusBadRequest,
@@ -87,7 +135,6 @@ func GetCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		category, err := service.GetCategoryByID(db, categoryID)
-
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{
@@ -111,11 +158,10 @@ func GetCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+// PUT /categories/:id
 func UpdateCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		categoryID, err := strconv.Atoi(c.Param("id"))
-
 		if err != nil || categoryID <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status": http.StatusBadRequest,
@@ -125,7 +171,6 @@ func UpdateCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		var req CategoryRequest
-
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status": http.StatusBadRequest,
@@ -134,26 +179,22 @@ func UpdateCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		userID, ip, userAgent, ok := getCategoryAuditMetadata(c)
+		if !ok {
+			return
+		}
+
 		category, err := service.UpdateCategory(
 			db,
 			categoryID,
 			req.CategoryName,
 			req.Description,
+			userID,
+			ip,
+			userAgent,
 		)
-
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{
-					"status": http.StatusNotFound,
-					"error":  "category not found",
-				})
-				return
-			}
-
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status": http.StatusBadRequest,
-				"error":  err.Error(),
-			})
+			respondCategoryMutationError(c, err)
 			return
 		}
 
@@ -165,11 +206,10 @@ func UpdateCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+// DELETE /categories/:id
 func DeleteCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		categoryID, err := strconv.Atoi(c.Param("id"))
-
 		if err != nil || categoryID <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status": http.StatusBadRequest,
@@ -178,21 +218,20 @@ func DeleteCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		err = service.DeleteCategory(db, categoryID)
+		userID, ip, userAgent, ok := getCategoryAuditMetadata(c)
+		if !ok {
+			return
+		}
 
+		err = service.DeleteCategory(
+			db,
+			categoryID,
+			userID,
+			ip,
+			userAgent,
+		)
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{
-					"status": http.StatusNotFound,
-					"error":  "category not found",
-				})
-				return
-			}
-
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status": http.StatusBadRequest,
-				"error":  err.Error(),
-			})
+			respondCategoryMutationError(c, err)
 			return
 		}
 

@@ -48,3 +48,24 @@ func GetAuditActionID(
 
 	return result.ActionID, nil
 }
+
+func GetAuditModuleID(
+	db *gorm.DB,
+	moduleCode string,
+) (int, error) {
+	var result struct {
+		ModuleID int `gorm:"column:module_id"`
+	}
+
+	err := db.
+		Table("audit_module").
+		Select("module_id").
+		Where("module_code = ?", moduleCode).
+		First(&result).Error
+
+	if err != nil {
+		return 0, err
+	}
+
+	return result.ModuleID, nil
+}
