@@ -113,15 +113,76 @@ func CreateCategory(
 	return category, nil
 }
 
-func GetAllCategories(db *gorm.DB) ([]model.Category, error) {
-	return repository.GetAllCategories(db)
+func GetAllCategories(
+	db *gorm.DB,
+	userID int,
+	ip string,
+	userAgent string,
+) ([]model.Category, error) {
+	var categories []model.Category
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var err error
+
+		categories, err = repository.GetAllCategories(tx)
+		if err != nil {
+			return err
+		}
+
+		return writeCategoryAudit(
+			tx,
+			userID,
+			"READ",
+			"Retrieved all categories",
+			ip,
+			userAgent,
+		)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return categories, nil
 }
 
 func GetCategoryByID(
 	db *gorm.DB,
 	categoryID int,
+	userID int,
+	ip string,
+	userAgent string,
 ) (model.Category, error) {
-	return repository.GetCategoryByID(db, categoryID)
+	var category model.Category
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var err error
+
+		category, err = repository.GetCategoryByID(tx, categoryID)
+		if err != nil {
+			return err
+		}
+
+		description := fmt.Sprintf(
+			"Retrieved category ID: %d",
+			categoryID,
+		)
+
+		return writeCategoryAudit(
+			tx,
+			userID,
+			"READ",
+			description,
+			ip,
+			userAgent,
+		)
+	})
+
+	if err != nil {
+		return model.Category{}, err
+	}
+
+	return category, nil
 }
 
 func UpdateCategory(

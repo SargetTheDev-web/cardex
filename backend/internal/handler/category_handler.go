@@ -104,9 +104,20 @@ func CreateCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 }
 
 // GET /categories
+
 func GetCategoriesHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		categories, err := service.GetAllCategories(db)
+		userID, ip, userAgent, ok := getCategoryAuditMetadata(c)
+		if !ok {
+			return
+		}
+
+		categories, err := service.GetAllCategories(
+			db,
+			userID,
+			ip,
+			userAgent,
+		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status": http.StatusInternalServerError,
@@ -123,6 +134,7 @@ func GetCategoriesHandler(db *gorm.DB) gin.HandlerFunc {
 }
 
 // GET /categories/:id
+
 func GetCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		categoryID, err := strconv.Atoi(c.Param("id"))
@@ -134,7 +146,18 @@ func GetCategoryHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		category, err := service.GetCategoryByID(db, categoryID)
+		userID, ip, userAgent, ok := getCategoryAuditMetadata(c)
+		if !ok {
+			return
+		}
+
+		category, err := service.GetCategoryByID(
+			db,
+			categoryID,
+			userID,
+			ip,
+			userAgent,
+		)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{
