@@ -230,7 +230,7 @@ func RequestProfileUpdate(
 
 		if req.LastName != nil {
 
-			value := strings.TrimSpace(*req.LastName)
+			value := strings.ToUpper(strings.TrimSpace(*req.LastName))
 
 			if value == "" {
 				return errors.New(
@@ -259,7 +259,7 @@ func RequestProfileUpdate(
 
 		if req.FirstName != nil {
 
-			value := strings.TrimSpace(*req.FirstName)
+			value := strings.ToUpper(strings.TrimSpace(*req.FirstName))
 
 			if value == "" {
 				return errors.New(
@@ -288,9 +288,7 @@ func RequestProfileUpdate(
 
 		if req.MiddleName != nil {
 
-			value := strings.TrimSpace(
-				*req.MiddleName,
-			)
+			value := strings.ToUpper(strings.TrimSpace(*req.MiddleName))
 
 			current := ""
 
