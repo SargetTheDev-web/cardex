@@ -42,6 +42,21 @@ type UpdateUserInput struct {
 	BirthDate       *string
 }
 
+// normalizeName trims whitespace and converts a name to uppercase.
+func normalizeName(value string) string {
+	return strings.ToUpper(strings.TrimSpace(value))
+}
+
+// normalizeOptionalName preserves nil and normalizes non-nil values.
+func normalizeOptionalName(value *string) *string {
+	if value == nil {
+		return nil
+	}
+
+	normalized := normalizeName(*value)
+	return &normalized
+}
+
 func GetUsers(db *gorm.DB) ([]repository.UserListRow, error) {
 	return repository.GetUserList(db)
 }
@@ -55,10 +70,14 @@ func CreateUser(
 ) error {
 
 	username := strings.TrimSpace(input.Username)
-	email := strings.TrimSpace(input.EmailAddress)
+	email := strings.ToLower(strings.TrimSpace(input.EmailAddress))
 	institutionalID := strings.TrimSpace(input.InstitutionalID)
-	lastName := strings.TrimSpace(input.LastName)
-	firstName := strings.TrimSpace(input.FirstName)
+
+	// Normalize all name fields.
+	lastName := normalizeName(input.LastName)
+	firstName := normalizeName(input.FirstName)
+	middleName := normalizeOptionalName(input.MiddleName)
+	suffixExtension := input.SuffixExtension
 
 	if username == "" {
 		return errors.New("username is required")
@@ -142,7 +161,9 @@ func CreateUser(
 		if value != "" {
 			parsed, err := time.Parse("2006-01-02", value)
 			if err != nil {
-				return errors.New("birth date must use YYYY-MM-DD format")
+				return errors.New(
+					"birth date must use YYYY-MM-DD format",
+				)
 			}
 
 			birthDate = &parsed
@@ -177,8 +198,8 @@ func CreateUser(
 			InstitutionalID: institutionalID,
 			LastName:        lastName,
 			FirstName:       firstName,
-			MiddleName:      input.MiddleName,
-			SuffixExtension: input.SuffixExtension,
+			MiddleName:      middleName,
+			SuffixExtension: suffixExtension,
 			Course:          input.Course,
 			MobileNumber:    input.MobileNumber,
 			BirthDate:       birthDate,
@@ -277,7 +298,9 @@ func UpdateUser(
 		}
 
 		if input.EmailAddress != nil {
-			email := strings.TrimSpace(*input.EmailAddress)
+			email := strings.ToLower(
+				strings.TrimSpace(*input.EmailAddress),
+			)
 
 			if email == "" {
 				return errors.New("email address cannot be empty")
@@ -302,7 +325,9 @@ func UpdateUser(
 				strings.TrimSpace(*input.InstitutionalID)
 
 			if institutionalID == "" {
-				return errors.New("institutional ID cannot be empty")
+				return errors.New(
+					"institutional ID cannot be empty",
+				)
 			}
 
 			exists, err :=
@@ -317,14 +342,17 @@ func UpdateUser(
 			}
 
 			if exists {
-				return errors.New("institutional ID already exists")
+				return errors.New(
+					"institutional ID already exists",
+				)
 			}
 
 			profileUpdates["institutional_id"] = institutionalID
 		}
 
+		// Normalize name fields before updating the database.
 		if input.LastName != nil {
-			lastName := strings.TrimSpace(*input.LastName)
+			lastName := normalizeName(*input.LastName)
 
 			if lastName == "" {
 				return errors.New("last name cannot be empty")
@@ -334,7 +362,7 @@ func UpdateUser(
 		}
 
 		if input.FirstName != nil {
-			firstName := strings.TrimSpace(*input.FirstName)
+			firstName := normalizeName(*input.FirstName)
 
 			if firstName == "" {
 				return errors.New("first name cannot be empty")
@@ -344,12 +372,13 @@ func UpdateUser(
 		}
 
 		if input.MiddleName != nil {
-			profileUpdates["middle_name"] = *input.MiddleName
+			profileUpdates["middle_name"] =
+				normalizeName(*input.MiddleName)
 		}
 
 		if input.SuffixExtension != nil {
 			profileUpdates["suffix_extension"] =
-				*input.SuffixExtension
+				strings.TrimSpace(*input.SuffixExtension)
 		}
 
 		if input.Course != nil {
@@ -357,8 +386,7 @@ func UpdateUser(
 		}
 
 		if input.MobileNumber != nil {
-			profileUpdates["mobile_number"] =
-				*input.MobileNumber
+			profileUpdates["mobile_number"] = *input.MobileNumber
 		}
 
 		if input.BirthDate != nil {
