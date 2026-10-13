@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	model "backend/internal/models"
 	"backend/internal/service"
@@ -245,6 +246,50 @@ func DeleteBookHandler(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  http.StatusOK,
 			"message": "Book deleted successfully",
+		})
+	}
+}
+
+func ValidateBookISBNHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		isbn := c.Query("isbn")
+		if strings.TrimSpace(isbn) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"message": "ISBN is required",
+			})
+			return
+		}
+
+		exists, err := service.ValidateBookISBN(db, isbn)
+		if err != nil {
+			if errors.Is(err, service.ErrInvalidBook) {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"status":  http.StatusBadRequest,
+					"message": err.Error(),
+				})
+				return
+			}
+
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"message": "Failed to validate ISBN",
+			})
+			return
+		}
+
+		message := "ISBN is available"
+		if exists {
+			message = "ISBN already exists"
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  http.StatusOK,
+			"message": message,
+			"data": gin.H{
+				"isbn":   strings.TrimSpace(isbn),
+				"exists": exists,
+			},
 		})
 	}
 }

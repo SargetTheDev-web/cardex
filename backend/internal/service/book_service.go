@@ -348,3 +348,18 @@ func DeleteBook(
 		)
 	})
 }
+
+func ValidateBookISBN(db *gorm.DB, isbn string) (bool, error) {
+	isbn = strings.TrimSpace(isbn)
+
+	if isbn == "" {
+		return false, fmt.Errorf("%w: ISBN is required", ErrInvalidBook)
+	}
+
+	exists, err := repository.BookISBNExists(db, isbn)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}

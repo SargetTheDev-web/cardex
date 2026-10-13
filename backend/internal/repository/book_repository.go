@@ -137,3 +137,16 @@ func DeleteBook(db *gorm.DB, bookID int) error {
 
 	return nil
 }
+
+func BookISBNExists(db *gorm.DB, isbn string) (bool, error) {
+	var count int64
+
+	err := db.Model(&model.Book{}).
+		Where("isbn = ?", isbn).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
