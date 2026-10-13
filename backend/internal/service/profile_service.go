@@ -472,3 +472,7 @@ func RequestProfileUpdate(
 		return nil
 	})
 }
+
+func GetPublicBooks(db *gorm.DB) ([]model.Book, error) {
+	return repository.GetAllBooks(db)
+}

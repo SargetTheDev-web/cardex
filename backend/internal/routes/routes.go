@@ -26,8 +26,7 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	router.POST("/register/complete", handler.CompleteRegistrationHandler(db))
 	router.GET("/enums/courses", handler.GetCourseProgramsHandler(db))
 	router.GET("/enums/suffixes", handler.GetSuffixExtensionsHandler(db))
-	router.GET("/books", handler.GetBooksHandler(db))
-	router.GET("/books/:id", handler.GetBookHandler(db))
+	router.GET("/public/books", handler.GetPublicBooksHandler(db))
 
 	auth := router.Group("/auth")
 	{
@@ -101,6 +100,12 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	protected.GET(
 		"/publishers/:id",
 		handler.GetPublisherHandler(db),
+	)
+	protected.GET(
+		"/books", handler.GetBooksHandler(db),
+	)
+	protected.GET(
+		"/books/:id", handler.GetBookHandler(db),
 	)
 
 	// ADMIN ONLY

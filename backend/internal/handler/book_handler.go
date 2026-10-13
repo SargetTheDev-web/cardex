@@ -293,3 +293,22 @@ func ValidateBookISBNHandler(db *gorm.DB) gin.HandlerFunc {
 		})
 	}
 }
+
+func GetPublicBooksHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		books, err := service.GetPublicBooks(db)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"message": "Failed to retrieve books",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  http.StatusOK,
+			"message": "Books retrieved successfully",
+			"data":    books,
+		})
+	}
+}
