@@ -4,6 +4,7 @@ package repository
 
 import (
 	"errors"
+	"strings"
 
 	model "backend/internal/models"
 
@@ -141,8 +142,13 @@ func DeleteBook(db *gorm.DB, bookID int) error {
 func BookISBNExists(db *gorm.DB, isbn string) (bool, error) {
 	var count int64
 
+	normalizedISBN := strings.ReplaceAll(strings.TrimSpace(isbn), "-", "")
+
 	err := db.Model(&model.Book{}).
-		Where("isbn = ?", isbn).
+		Where(
+			"REPLACE(TRIM(isbn), '-', '') = ?",
+			normalizedISBN,
+		).
 		Count(&count).Error
 	if err != nil {
 		return false, err
