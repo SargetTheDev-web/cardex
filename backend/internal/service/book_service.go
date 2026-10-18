@@ -349,8 +349,14 @@ func DeleteBook(
 	})
 }
 
-func ValidateBookISBN(db *gorm.DB, isbn string) (bool, error) {
+func NormalizeISBN(isbn string) string {
 	isbn = strings.TrimSpace(isbn)
+	isbn = strings.ReplaceAll(isbn, "-", "")
+	return isbn
+}
+
+func ValidateBookISBN(db *gorm.DB, isbn string) (bool, error) {
+	isbn = NormalizeISBN(isbn)
 
 	if isbn == "" {
 		return false, fmt.Errorf("%w: ISBN is required", ErrInvalidBook)
