@@ -108,6 +108,15 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		"/books/:id", handler.GetBookHandler(db),
 	)
 
+	protected.GET(
+		"/book-copies",
+		handler.GetBookCopiesHandler(db),
+	)
+
+	protected.GET(
+		"/book-copies/:id", handler.GetBookCopyHandler(db),
+	)
+
 	// ADMIN ONLY
 	admin := protected.Group("/")
 	admin.Use(middleware.RequireAdmin(db))
@@ -227,5 +236,21 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 
 	admin.DELETE(
 		"/books/:id", handler.DeleteBookHandler(db),
+	)
+
+	// --------------------------------------------------
+	// Book Copy Management - ADMIN ONLY
+	// --------------------------------------------------
+
+	admin.POST(
+		"/book-copies", handler.CreateBookCopyHandler(db),
+	)
+
+	admin.PUT(
+		"/book-copies/:id", handler.UpdateBookCopyHandler(db),
+	)
+
+	admin.PATCH(
+		"/book-copies/:id/status", handler.UpdateBookCopyStatusHandler(db),
 	)
 }
