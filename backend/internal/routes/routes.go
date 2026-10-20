@@ -253,4 +253,21 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	admin.PATCH(
 		"/book-copies/:id/status", handler.UpdateBookCopyStatusHandler(db),
 	)
+
+	// --------------------------------------------------
+	// Attendance kiosk - LIBRARIAN OR ADMIN
+	// --------------------------------------------------
+
+	kiosk := protected.Group("/attendance/kiosk")
+	kiosk.Use(middleware.RequireLibrarianOrAdmin(db))
+
+	kiosk.POST(
+		"/activate",
+		handler.ActivateAttendanceKioskHandler(db),
+	)
+
+	kiosk.POST(
+		"/deactivate",
+		handler.DeactivateAttendanceKioskHandler(db),
+	)
 }
