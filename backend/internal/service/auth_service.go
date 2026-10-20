@@ -330,3 +330,218 @@ func Login(
 		MaxLoginAttempts: maxAttempts,
 	}, nil
 }
+
+func LoginWithPIN(
+	db *gorm.DB,
+	userID int,
+	pin string,
+	ip string,
+	userAgent string,
+) (*LoginResult, error) {
+	pin = strings.TrimSpace(pin)
+
+	if userID <= 0 || pin == "" {
+		return nil, errors.New("invalid credentials")
+	}
+
+	// 1. Load user by ID decoded from the QR code.
+	user, err := repository.GetUserByID(db, userID)
+	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	// 2. Read login retry configuration.
+	maxAttemptsStr, _ := repository.GetSystemParameter(
+		db,
+		"MAX_LOGIN_RETRY_COUNT",
+	)
+
+	maxAttempts, err := strconv.Atoi(maxAttemptsStr)
+	if err != nil || maxAttempts <= 0 {
+		return nil, errors.New("invalid login retry configuration")
+	}
+
+	// 3. Handle temporary account lock.
+	if user.StatusID == 5 {
+		lockDurationStr, _ := repository.GetSystemParameter(
+			db,
+			"SECURITY_LOCKDOWN_MINS",
+		)
+
+		lockDuration, err := strconv.Atoi(lockDurationStr)
+		if err != nil || lockDuration <= 0 {
+			return nil, errors.New(
+				"invalid security lockdown configuration",
+			)
+		}
+
+		if user.DateTimeLocked == nil {
+			return nil, errors.New("account still locked")
+		}
+
+		unlockTime := user.DateTimeLocked.Add(
+			time.Duration(lockDuration) * time.Minute,
+		)
+
+		if time.Now().UTC().Before(unlockTime.UTC()) {
+			return nil, errors.New("account still locked")
+		}
+
+		if err := repository.ResetLoginAttempts(
+			db,
+			user.UserID,
+		); err != nil {
+			return nil, err
+		}
+
+		user.StatusID = 3
+		user.LoginRetryCount = 0
+		user.DateTimeLocked = nil
+	}
+
+	// 4. Check account status.
+	status, err := repository.GetUserStatus(db, user.StatusID)
+	if err != nil {
+		return nil, errors.New("failed to retrieve account status")
+	}
+
+	if !status.IsAllowedLogin {
+		return nil, errors.New("account login not allowed")
+	}
+
+	// 5. Check expiration.
+	if !user.ExpirationDate.IsZero() &&
+		time.Now().UTC().After(user.ExpirationDate.UTC()) {
+		return nil, errors.New("account expired")
+	}
+
+	// 6. Verify PIN against the stored bcrypt hash.
+	pinMatches := false
+
+	if user.PINHash != nil && strings.TrimSpace(*user.PINHash) != "" {
+		pinMatches = hash.CheckPassword(
+			*user.PINHash,
+			pin,
+		) == nil
+	}
+
+	if !pinMatches {
+		if err := repository.IncrementLoginAttempts(
+			db,
+			user.UserID,
+		); err != nil {
+			return nil, err
+		}
+
+		currentRetryCount := user.LoginRetryCount + 1
+
+		_ = repository.InsertAuditLog(
+			db,
+			&user.UserID,
+			6,
+			1,
+			"Failed PIN login attempt",
+			ip,
+			userAgent,
+		)
+
+		if currentRetryCount >= maxAttempts {
+			if err := repository.LockAccount(
+				db,
+				user.UserID,
+			); err != nil {
+				return nil, err
+			}
+
+			_ = repository.InsertAuditLog(
+				db,
+				&user.UserID,
+				7,
+				1,
+				"Account locked due to max failed PIN attempts",
+				ip,
+				userAgent,
+			)
+
+			return nil, &LoginError{
+				Message:               "invalid credentials",
+				LoginRetryCount:       currentRetryCount,
+				MaxLoginAttempts:      maxAttempts,
+				RemainingLoginRetries: 0,
+				AccountLocked:         true,
+			}
+		}
+
+		return nil, &LoginError{
+			Message:               "invalid credentials",
+			LoginRetryCount:       currentRetryCount,
+			MaxLoginAttempts:      maxAttempts,
+			RemainingLoginRetries: maxAttempts - currentRetryCount,
+			AccountLocked:         false,
+		}
+	}
+
+	// 7. Retrieve role and permissions before creating a session.
+	role, err := repository.GetUserRole(db, user.UserID)
+	if err != nil {
+		return nil, errors.New("failed to retrieve user role")
+	}
+
+	permissions, err := repository.GetRolePermissions(db, role.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to retrieve permissions")
+	}
+
+	// 8. Generate JWT.
+	jwtToken, tokenExpiresAt, err := token.GenerateJWT(user.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 9. Store only the JWT hash in the server-side session.
+	hashedToken := hash.HashToken(jwtToken)
+
+	if err := repository.CreateSession(
+		db,
+		user.UserID,
+		hashedToken,
+		ip,
+		userAgent,
+		tokenExpiresAt,
+	); err != nil {
+		return nil, err
+	}
+
+	// 10. Reset retries after successful PIN verification.
+	if err := repository.ResetLoginAttempts(
+		db,
+		user.UserID,
+	); err != nil {
+		// Revoke the session if retry reset fails.
+		_ = repository.DeleteSessionByToken(db, hashedToken)
+		return nil, err
+	}
+
+	user.LoginRetryCount = 0
+	user.StatusID = 3
+	user.DateTimeLocked = nil
+
+	_ = repository.InsertAuditLog(
+		db,
+		&user.UserID,
+		5,
+		1,
+		"Successful PIN login",
+		ip,
+		userAgent,
+	)
+
+	return &LoginResult{
+		Token:            jwtToken,
+		TokenExpiresAt:   tokenExpiresAt,
+		User:             user,
+		Role:             role,
+		Permissions:      permissions,
+		MaxLoginAttempts: maxAttempts,
+	}, nil
+}
