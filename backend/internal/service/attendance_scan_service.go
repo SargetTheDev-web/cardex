@@ -1,11 +1,10 @@
-// internal/service/attendance_scan_service.go
-
 package service
 
 import (
 	"errors"
 	"fmt"
 	"time"
+	_ "time/tzdata"
 
 	model "backend/internal/models"
 
@@ -29,7 +28,7 @@ type AttendanceScanResult struct {
 }
 
 // RecordAttendanceScan validates the kiosk and records one attendance event.
-// Account status 3 represents an active account in the current CARDex setup.
+// Account status 3 represents an active account in CARDex.
 func RecordAttendanceScan(
 	db *gorm.DB,
 	credential string,
@@ -41,7 +40,7 @@ func RecordAttendanceScan(
 
 	kiosk, err := ValidateAttendanceKioskCredential(db, credential)
 	if err != nil {
-		return nil, ErrInvalidKioskCredential
+		return nil, fmt.Errorf("%w: %v", ErrInvalidKioskCredential, err)
 	}
 
 	loc, err := time.LoadLocation("Asia/Manila")
@@ -54,16 +53,18 @@ func RecordAttendanceScan(
 	localDate := localNow.Format("2006-01-02")
 
 	dayStartLocal := time.Date(
-		localNow.Year(), localNow.Month(), localNow.Day(),
-		0, 0, 0, 0, loc,
+		localNow.Year(),
+		localNow.Month(),
+		localNow.Day(),
+		0, 0, 0, 0,
+		loc,
 	)
 	dayEndLocal := dayStartLocal.AddDate(0, 0, 1)
 
 	var scanType string
 
 	err = db.Transaction(func(tx *gorm.DB) error {
-		// Serialize scans for this user to prevent concurrent requests
-		// from choosing the same check-in/check-out state.
+		// Serialize scans for this user to avoid concurrent state changes.
 		var user model.User
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Select("user_id", "status_id").
@@ -74,7 +75,7 @@ func RecordAttendanceScan(
 			return ErrAttendanceUserNotFound
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("load attendance user: %w", err)
 		}
 		if user.StatusID != 3 {
 			return ErrAttendanceUserInactive
@@ -93,12 +94,10 @@ func RecordAttendanceScan(
 			First(&previous).Error
 
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
+			return fmt.Errorf("load previous attendance scan: %w", err)
 		}
 
 		if err == nil {
-			// Ignore rapid repeated scans. This is a basic debounce;
-			// it is not a substitute for kiosk credential security.
 			if now.Sub(previous.ScannedAt) < 5*time.Second {
 				return ErrDuplicateAttendanceScan
 			}
@@ -113,7 +112,7 @@ func RecordAttendanceScan(
 		}
 
 		sessionID := kiosk.KioskSessionID
-		log := model.AttendanceLog{
+		attendanceLog := model.AttendanceLog{
 			UserID:         userID,
 			Campus:         kiosk.Campus,
 			ScanType:       scanType,
@@ -121,8 +120,8 @@ func RecordAttendanceScan(
 			KioskSessionID: &sessionID,
 		}
 
-		if err := tx.Create(&log).Error; err != nil {
-			return err
+		if err := tx.Create(&attendanceLog).Error; err != nil {
+			return fmt.Errorf("insert attendance log: %w", err)
 		}
 
 		if scanType == "CHECK_IN" {
@@ -133,8 +132,6 @@ func RecordAttendanceScan(
 				FirstCheckInAt: now,
 			}
 
-			// The database primary key guarantees at most one daily
-			// credit per user, campus, and attendance date.
 			if err := tx.Clauses(clause.OnConflict{
 				Columns: []clause.Column{
 					{Name: "user_id"},
@@ -143,7 +140,7 @@ func RecordAttendanceScan(
 				},
 				DoNothing: true,
 			}).Create(&day).Error; err != nil {
-				return err
+				return fmt.Errorf("insert daily attendance credit: %w", err)
 			}
 		}
 
