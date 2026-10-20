@@ -4,6 +4,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"backend/internal/service"
@@ -41,6 +42,9 @@ func AttendanceScanHandler(db *gorm.DB) gin.HandlerFunc {
 			credential,
 			req.UserID,
 		)
+		if err != nil {
+			log.Printf("RecordAttendanceScan failed: user_id=%d error=%v", req.UserID, err)
+		}
 
 		switch {
 		case errors.Is(err, service.ErrInvalidKioskCredential):
