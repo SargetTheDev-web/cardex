@@ -152,6 +152,7 @@ func ApproveProfileChange(
 				Course:          request.Course,
 				MobileNumber:    request.MobileNumber,
 				BirthDate:       request.BirthDate,
+				ProfileImageURL: request.ProfileImageURL,
 				CreatedBy:       &adminID,
 			}
 
@@ -228,6 +229,10 @@ func ApproveProfileChange(
 			if request.BirthDate != nil {
 				updates["birth_date"] =
 					*request.BirthDate
+			}
+
+			if request.ProfileImageURL != nil {
+				updates["profile_image_url"] = *request.ProfileImageURL
 			}
 
 			// --------------------------------------------------

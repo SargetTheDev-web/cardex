@@ -18,8 +18,9 @@ type UserProfile struct {
 
 	Course *string `gorm:"column:course"`
 
-	MobileNumber *string    `gorm:"column:mobile_number"`
-	BirthDate    *time.Time `gorm:"column:birth_date"`
+	MobileNumber    *string    `gorm:"column:mobile_number"`
+	BirthDate       *time.Time `gorm:"column:birth_date"`
+	ProfileImageURL *string    `gorm:"column:profile_image_url" json:"profile_image_url"`
 
 	CreatedBy *int `gorm:"column:created_by"`
 	UpdatedBy *int `gorm:"column:updated_by"`

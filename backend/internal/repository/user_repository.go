@@ -176,3 +176,26 @@ func UpdatePIN(db *gorm.DB, userID int, pinHash string) error {
 			"updated_at": time.Now(),
 		}).Error
 }
+
+func GetUserBySSO(
+	db *gorm.DB,
+	provider string,
+	providerID string,
+) (*model.User, error) {
+	var user model.User
+
+	err := db.
+		Table(`"user"`).
+		Where(
+			"sso_provider = ? AND sso_provider_id = ?",
+			provider,
+			providerID,
+		).
+		First(&user).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}

@@ -21,6 +21,9 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	// --------------------------------------------------
 
 	router.POST("/login", handler.LoginHandler(db))
+	router.POST("/auth/google", handler.GoogleAuthHandler(db))
+	router.POST("/auth/google/register/complete", handler.GoogleRegisterCompleteHandler(db))
+	router.POST("/auth/email/check", handler.CheckEmailHandler(db))
 	router.POST("/login/qr", handler.QRLoginHandler(db))
 	router.POST("/register/request", handler.RegisterRequestHandler(db))
 	router.POST("/register/verify", handler.VerifyCodeHandler(db))

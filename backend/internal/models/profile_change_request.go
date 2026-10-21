@@ -22,6 +22,7 @@ type ProfileChangeRequest struct {
 	Course          *string    `gorm:"column:course"`
 	MobileNumber    *string    `gorm:"column:mobile_number"`
 	BirthDate       *time.Time `gorm:"column:birth_date"`
+	ProfileImageURL *string    `gorm:"column:profile_image_url" json:"profile_image_url"`
 
 	PINHash *string `gorm:"column:pin_hash" json:"-"`
 

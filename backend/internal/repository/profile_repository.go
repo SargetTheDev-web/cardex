@@ -140,6 +140,7 @@ func GetUserProfile(
 	profile.Course = request.Course
 	profile.MobileNumber = request.MobileNumber
 	profile.BirthDate = request.BirthDate
+	profile.ProfileImageURL = request.ProfileImageURL
 
 	return &user, &profile, nil
 }
