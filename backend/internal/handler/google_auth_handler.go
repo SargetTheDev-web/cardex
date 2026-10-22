@@ -77,7 +77,8 @@ func GoogleAuthHandler(db *gorm.DB) gin.HandlerFunc {
 			"user_id":           login.User.UserID,
 			"username":          login.User.Username,
 			"email":             login.User.EmailAddress,
-			"role_id":           login.User.RoleID,
+			"role_id":           login.Role.RoleID,
+			"role":              login.Role.RoleCode,
 			"permissions":       login.Permissions,
 			"profile_image_url": result.ProfileImageURL,
 		})
