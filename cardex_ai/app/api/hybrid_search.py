@@ -1,8 +1,6 @@
+
 from fastapi import APIRouter, HTTPException
 
-from app.repositories.mock_document_repository import (
-    MockDocumentRepository,
-)
 from app.schemas.hybrid_search import (
     HybridSearchRequest,
     HybridSearchResponse,
@@ -24,8 +22,6 @@ hybrid_search_service = HybridSearchService(
     embedding_service=embedding_service,
 )
 
-document_repository = MockDocumentRepository()
-
 
 @router.post(
     "/hybrid",
@@ -43,7 +39,23 @@ def hybrid_search(
             detail="Search query cannot be empty.",
         )
 
-    documents = document_repository.get_all_documents()
+    documents = [
+        document.model_copy(
+            update={
+                "content": document.content.strip(),
+                "title": document.title.strip(),
+            }
+        )
+        for document in request.documents
+        if document.title.strip()
+    ]
+
+    if not documents:
+        return HybridSearchResponse(
+            query=query,
+            matches_found=False,
+            results=[],
+        )
 
     results = hybrid_search_service.search(
         query=query,
@@ -51,8 +63,6 @@ def hybrid_search(
         top_k=request.top_k,
     )
 
-    # For now, a result with a meaningful hybrid score
-    # is considered a match.
     matches_found = any(
         result.hybrid_score > 0.25
         for result in results

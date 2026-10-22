@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from app.repositories.mock_document_repository import (
     MockDocumentRepository,
 )
-from cardex_ai.app.schemas.recommendation import (
+from app.schemas.recommendation import (
     RecommendationRequest,
     RecommendationResponse,
 )

@@ -369,3 +369,7 @@ func ValidateBookISBN(db *gorm.DB, isbn string) (bool, error) {
 
 	return exists, nil
 }
+
+func GetPublicBooks(db *gorm.DB) ([]model.Book, error) {
+	return repository.GetAllBooks(db)
+}

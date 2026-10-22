@@ -1,0 +1,27 @@
+
+services:
+  cardex-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cardex-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      HF_HOME: /models/huggingface
+    volumes:
+      - ai_model_cache:/models/huggingface
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+volumes:
+  ai_model_cache:

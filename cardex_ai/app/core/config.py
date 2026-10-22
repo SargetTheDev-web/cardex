@@ -1,3 +1,4 @@
+
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -7,7 +8,9 @@ class Settings(BaseSettings):
     app_name: str = "CARDex AI Service"
     app_env: str = "development"
 
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_model: str = (
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

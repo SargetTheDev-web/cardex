@@ -31,6 +31,7 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	router.GET("/enums/courses", handler.GetCourseProgramsHandler(db))
 	router.GET("/enums/suffixes", handler.GetSuffixExtensionsHandler(db))
 	router.GET("/public/books", handler.GetPublicBooksHandler(db))
+	router.POST("/public/search", handler.PublicBookSearchHandler(db))
 
 	// Kiosk scanning: authenticates using the kiosk credential.
 	router.POST("/attendance/kiosk/scan", handler.AttendanceScanHandler(db))
