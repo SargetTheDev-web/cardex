@@ -12,12 +12,12 @@ import (
 	"gorm.io/gorm"
 )
 
-const systemParameterModuleCode = "SYSTEM_PARAMETER"
+const systemParameterModuleCode = "SYSTEM_CONFIG"
 
 const (
-	AuditActionViewAll = "SYSTEM_PARAMETER_VIEW_ALL"
-	AuditActionView    = "SYSTEM_PARAMETER_VIEW"
-	AuditActionUpdate  = "SYSTEM_PARAMETER_UPDATE"
+	AuditActionViewAll = "READ"
+	AuditActionView    = "READ"
+	AuditActionUpdate  = "UPDATE"
 )
 
 type SystemParameterService struct {
