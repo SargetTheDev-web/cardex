@@ -263,6 +263,25 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	)
 
 	// --------------------------------------------------
+	// System Parameter - ADMIN
+	// --------------------------------------------------
+
+	admin.GET(
+		"/system-parameters/:key",
+		handler.GetSystemParameterHandler(db),
+	)
+
+	admin.PUT(
+		"/system-parameters/:key",
+		handler.UpdateSystemParameterHandler(db),
+	)
+
+	admin.GET(
+		"/system-parameters",
+		handler.GetAllSystemParametersHandler(db),
+	)
+
+	// --------------------------------------------------
 	// Attendance kiosk - LIBRARIAN OR ADMIN
 	// --------------------------------------------------
 
