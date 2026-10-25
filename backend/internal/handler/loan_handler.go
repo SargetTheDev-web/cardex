@@ -100,3 +100,86 @@ func BorrowBookHandler(db *gorm.DB) gin.HandlerFunc {
 		})
 	}
 }
+
+type returnBookRequest struct {
+	Barcode   string `json:"barcode" binding:"required"`
+	Condition string `json:"condition" binding:"required,oneof=GOOD DAMAGED"`
+}
+
+func ReturnBookHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req returnBookRequest
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"error":   "invalid_request",
+				"message": "A barcode and condition (GOOD or DAMAGED) are required",
+			})
+			return
+		}
+
+		staffIDValue, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status": http.StatusUnauthorized,
+				"error":  "unauthorized",
+			})
+			return
+		}
+
+		staffID, ok := staffIDValue.(int)
+		if !ok || staffID <= 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status": http.StatusUnauthorized,
+				"error":  "invalid_user_identity",
+			})
+			return
+		}
+
+		result, err := service.ReturnBook(
+			db,
+			req.Barcode,
+			req.Condition,
+			staffID,
+			c.ClientIP(),
+			c.GetHeader("User-Agent"),
+		)
+
+		if err != nil {
+			switch {
+			case errors.Is(err, service.ErrInvalidReturnRequest):
+				c.JSON(http.StatusBadRequest, gin.H{
+					"status":  http.StatusBadRequest,
+					"error":   "invalid_request",
+					"message": "A valid barcode and condition are required",
+				})
+			case errors.Is(err, service.ErrLoanNotFound):
+				c.JSON(http.StatusConflict, gin.H{
+					"status":  http.StatusConflict,
+					"error":   "active_loan_not_found",
+					"message": "No active loan was found for this copy",
+				})
+			case errors.Is(err, service.ErrInvalidFinePolicy):
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"status":  http.StatusInternalServerError,
+					"error":   "invalid_fine_policy",
+					"message": "The fine policy is missing or invalid",
+				})
+			default:
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"status":  http.StatusInternalServerError,
+					"error":   "return_failed",
+					"message": "Unable to process the return transaction",
+				})
+			}
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  http.StatusOK,
+			"message": result.Message,
+			"data":    result,
+		})
+	}
+}

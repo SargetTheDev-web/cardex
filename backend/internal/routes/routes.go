@@ -298,7 +298,18 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.DeactivateAttendanceKioskHandler(db),
 	)
 
+	// --------------------------------------------------
+	// Circulation Module - LIBRARIAN OR ADMIN
+	// --------------------------------------------------
+
 	circulation := protected.Group("/circulation")
 	circulation.Use(middleware.RequireLibrarianOrAdmin(db))
-	circulation.POST("/borrow", handler.BorrowBookHandler(db))
+
+	circulation.POST(
+		"/borrow", handler.BorrowBookHandler(db),
+	)
+
+	circulation.POST(
+		"/return", handler.ReturnBookHandler(db),
+	)
 }
