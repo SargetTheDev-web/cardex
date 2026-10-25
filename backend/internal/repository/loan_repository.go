@@ -83,3 +83,92 @@ func MarkCopyBorrowed(tx *gorm.DB, copyID int) error {
 
 	return nil
 }
+
+type RecentTransaction struct {
+	LoanID     int64      `json:"loan_id"`
+	UserID     int        `json:"user_id"`
+	BookTitle  string     `json:"book_title"`
+	Borrower   string     `json:"borrower"`
+	Status     string     `json:"status"`
+	LoanDate   time.Time  `json:"loan_date"`
+	DueDate    time.Time  `json:"due_date"`
+	ReturnDate *time.Time `json:"return_date,omitempty"`
+	Barcode    string     `json:"barcode"`
+}
+
+func GetRecentTransactions(
+	db *gorm.DB,
+	limit int,
+) ([]RecentTransaction, error) {
+	transactions := make([]RecentTransaction, 0)
+
+	const query = `
+        SELECT
+            l.loan_id,
+            l.user_id,
+            b.title AS book_title,
+
+            COALESCE(
+                NULLIF(
+                    BTRIM(
+                        CONCAT_WS(
+                            ' ',
+                            NULLIF(BTRIM(up.first_name), ''),
+                            NULLIF(BTRIM(up.middle_name), ''),
+                            NULLIF(BTRIM(up.last_name), ''),
+                            NULLIF(BTRIM(up.suffix_extension), '')
+                        )
+                    ),
+                    ''
+                ),
+                NULLIF(u.username, ''),
+                NULLIF(u.email_address, ''),
+                CONCAT('User #', l.user_id)
+            ) AS borrower,
+
+            CASE
+                WHEN l.status::text = 'BORROWED'
+                     AND l.due_date < CURRENT_DATE
+                    THEN 'OVERDUE'
+                ELSE l.status::text
+            END AS status,
+
+            l.loan_date,
+            l.due_date,
+            l.return_date,
+            COALESCE(bc.barcode, '') AS barcode
+
+        FROM loan l
+        INNER JOIN book_copy bc
+            ON bc.copy_id = l.copy_id
+        INNER JOIN book b
+            ON b.book_id = bc.book_id
+        INNER JOIN "user" u
+            ON u.user_id = l.user_id
+        LEFT JOIN user_profile up
+            ON up.user_id = u.user_id
+
+        ORDER BY
+            COALESCE(
+                l.return_date::timestamp,
+                l.created_at
+            ) DESC,
+            l.loan_id DESC
+
+        LIMIT ?
+    `
+
+	if limit < 1 {
+		limit = 5
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	err := db.Raw(query, limit).Scan(&transactions).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return transactions, nil
+}

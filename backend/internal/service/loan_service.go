@@ -421,3 +421,10 @@ func ReturnBook(
 
 	return &result, nil
 }
+
+func GetRecentTransactions(
+	db *gorm.DB,
+	limit int,
+) ([]repository.RecentTransaction, error) {
+	return repository.GetRecentTransactions(db, limit)
+}

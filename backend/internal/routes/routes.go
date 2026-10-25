@@ -312,4 +312,9 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	circulation.POST(
 		"/return", handler.ReturnBookHandler(db),
 	)
+
+	circulation.GET(
+		"/transactions/recent",
+		handler.GetRecentTransactionsHandler(db),
+	)
 }
