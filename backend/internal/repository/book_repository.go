@@ -156,3 +156,33 @@ func BookISBNExists(db *gorm.DB, isbn string) (bool, error) {
 
 	return count > 0, nil
 }
+
+type BookCatalogSummary struct {
+	TotalTitles     int64 `json:"total_titles"`
+	TotalCopies     int64 `json:"total_copies"`
+	AvailableCopies int64 `json:"available_copies"`
+	BorrowedCopies  int64 `json:"borrowed_copies"`
+}
+
+func GetBookCatalogSummary(db *gorm.DB) (BookCatalogSummary, error) {
+	var summary BookCatalogSummary
+
+	err := db.Raw(`
+        SELECT
+            (SELECT COUNT(*) FROM book) AS total_titles,
+            COUNT(*) AS total_copies,
+            COUNT(*) FILTER (
+                WHERE copy_status::text = 'AVAILABLE'
+            ) AS available_copies,
+            COUNT(*) FILTER (
+                WHERE copy_status::text = 'BORROWED'
+            ) AS borrowed_copies
+        FROM book_copy
+    `).Scan(&summary).Error
+
+	if err != nil {
+		return BookCatalogSummary{}, err
+	}
+
+	return summary, nil
+}

@@ -125,146 +125,153 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		"/book-copies/:id", handler.GetBookCopyHandler(db),
 	)
 
-	// ADMIN ONLY
-	admin := protected.Group("/")
-	admin.Use(middleware.RequireAdmin(db))
+	// Librarian
+	librarian := protected.Group("/")
+	librarian.Use(middleware.RequireLibrarianOrAdmin(db))
 
 	// --------------------------------------------------
-	// User Management - ADMIN ONLY
+	// User Management - LIBRARIAN OR ADMIN
 	// --------------------------------------------------
 
-	admin.GET(
+	librarian.GET(
 		"/users",
 		handler.GetUsersHandler(db),
 	)
 
-	admin.POST(
+	librarian.POST(
 		"/users",
 		handler.CreateUserHandler(db),
 	)
 
-	admin.PUT(
+	librarian.PUT(
 		"/users/:id",
 		handler.UpdateUserHandler(db),
 	)
 
-	admin.PATCH(
+	librarian.PATCH(
 		"/users/:id/status",
 		handler.ChangeUserStatusHandler(db),
 	)
 
-	admin.POST(
+	librarian.POST(
 		"/profile/change-request/:id/approve",
 		handler.ApproveProfileChangeHandler(db),
 	)
 
-	admin.POST(
+	librarian.POST(
 		"/profile/change-request/:id/reject",
 		handler.RejectProfileChangeHandler(db),
 	)
 
-	admin.GET(
+	librarian.GET(
 		"/profile/change-requests",
 		handler.GetPendingProfileChangeRequestsHandler(db),
 	)
 
 	// --------------------------------------------------
-	// Category Management - ADMIN ONLY
+	// Category Management - LIBRARIAN OR ADMIN
 	// --------------------------------------------------
 
-	admin.POST(
+	librarian.POST(
 		"/categories",
 		handler.CreateCategoryHandler(db),
 	)
 
-	admin.PUT(
+	librarian.PUT(
 		"/categories/:id",
 		handler.UpdateCategoryHandler(db),
 	)
 
-	admin.DELETE(
+	librarian.DELETE(
 		"/categories/:id",
 		handler.DeleteCategoryHandler(db),
 	)
 
 	// --------------------------------------------------
-	// Author Management - ADMIN ONLY
+	// Author Management - LIBRARIAN OR ADMIN
 	// --------------------------------------------------
 
-	admin.POST(
+	librarian.POST(
 		"/authors",
 		handler.CreateAuthorHandler(db),
 	)
 
-	admin.PUT("/authors/:id",
+	librarian.PUT("/authors/:id",
 		handler.UpdateAuthorHandler(db),
 	)
 
-	admin.DELETE("/authors/:id",
+	librarian.DELETE("/authors/:id",
 		handler.DeleteAuthorHandler(db),
 	)
 
 	// --------------------------------------------------
-	// Publisher Management - ADMIN ONLY
+	// Publisher Management - LIBRARIAN OR ADMIN
 	// --------------------------------------------------
 
-	admin.POST(
+	librarian.POST(
 		"/publishers",
 		handler.CreatePublisherHandler(db),
 	)
 
-	admin.PUT(
+	librarian.PUT(
 		"/publishers/:id",
 		handler.UpdatePublisherHandler(db),
 	)
 
-	admin.DELETE(
+	librarian.DELETE(
 		"/publishers/:id",
 		handler.DeletePublisherHandler(db),
 	)
 
 	// --------------------------------------------------
-	// Book Management - ADMIN ONLY
+	// Book Management - LIBRARIAN OR ADMIN
 	// --------------------------------------------------
 
-	admin.GET(
+	librarian.GET(
+		"/summary", handler.GetBookCatalogSummaryHandler(db),
+	)
+
+	librarian.GET(
 		"/books/isbn/validate",
 		handler.ValidateBookISBNHandler(db),
 	)
 
-	admin.POST(
+	librarian.POST(
 		"/books",
 		handler.CreateBookHandler(db),
 	)
 
-	admin.PUT(
+	librarian.PUT(
 		"/books/:id",
 		handler.UpdateBookHandler(db),
 	)
 
-	admin.DELETE(
+	librarian.DELETE(
 		"/books/:id", handler.DeleteBookHandler(db),
 	)
 
 	// --------------------------------------------------
-	// Book Copy Management - ADMIN ONLY
+	// Book Copy Management - LIBRARIAN OR ADMIN
 	// --------------------------------------------------
 
-	admin.POST(
+	librarian.POST(
 		"/book-copies", handler.CreateBookCopyHandler(db),
 	)
 
-	admin.PUT(
+	librarian.PUT(
 		"/book-copies/:id", handler.UpdateBookCopyHandler(db),
 	)
 
-	admin.PATCH(
+	librarian.PATCH(
 		"/book-copies/:id/status", handler.UpdateBookCopyStatusHandler(db),
 	)
 
 	// --------------------------------------------------
 	// System Parameter - ADMIN
 	// --------------------------------------------------
+
+	admin := protected.Group("/")
+	admin.Use(middleware.RequireAdmin(db))
 
 	admin.GET(
 		"/system-parameters/:key",
@@ -317,4 +324,5 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		"/transactions/recent",
 		handler.GetRecentTransactionsHandler(db),
 	)
+
 }

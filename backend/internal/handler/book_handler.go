@@ -312,3 +312,22 @@ func GetPublicBooksHandler(db *gorm.DB) gin.HandlerFunc {
 		})
 	}
 }
+
+func GetBookCatalogSummaryHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		summary, err := service.GetBookCatalogSummary(db)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"message": "Failed to retrieve book catalog summary",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  http.StatusOK,
+			"message": "Book catalog summary retrieved successfully",
+			"data":    summary,
+		})
+	}
+}
