@@ -5,7 +5,6 @@ package handler
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	"backend/internal/service"
 
@@ -187,31 +186,8 @@ func ReturnBookHandler(db *gorm.DB) gin.HandlerFunc {
 
 func GetRecentTransactionsHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		limit := 5
-
-		if rawLimit := c.Query("limit"); rawLimit != "" {
-			parsedLimit, err := strconv.Atoi(rawLimit)
-
-			if err != nil || parsedLimit < 1 {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"status":  http.StatusBadRequest,
-					"error":   "invalid_limit",
-					"message": "Limit must be a positive integer",
-				})
-				return
-			}
-
-			limit = parsedLimit
-		}
-
-		if limit > 50 {
-			limit = 50
-		}
-
-		transactions, err := service.GetRecentTransactions(db, limit)
+		transactions, err := service.GetRecentTransactions(db)
 		if err != nil {
-			// Log the underlying error server-side if your
-			// project already has a logger configured.
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status":  http.StatusInternalServerError,
 				"error":   "transactions_fetch_failed",

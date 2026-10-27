@@ -228,6 +228,7 @@ type ReturnResult struct {
 	LoanID      int64     `json:"loan_id"`
 	CopyID      int       `json:"copy_id"`
 	UserID      int       `json:"user_id"`
+	Borrower    string    `json:"borrower"`
 	Barcode     string    `json:"barcode"`
 	ReturnDate  time.Time `json:"return_date"`
 	OverdueDays int       `json:"overdue_days"`
@@ -240,6 +241,7 @@ type returnLoanRecord struct {
 	LoanID     int64     `gorm:"column:loan_id"`
 	CopyID     int       `gorm:"column:copy_id"`
 	UserID     int       `gorm:"column:user_id"`
+	Borrower   string    `gorm:"column:borrower"`
 	DueDate    time.Time `gorm:"column:due_date"`
 	LoanStatus string    `gorm:"column:loan_status"`
 }
@@ -267,19 +269,45 @@ func ReturnBook(
 		var loan returnLoanRecord
 
 		err := tx.Raw(`
-			SELECT
-				l.loan_id,
-				l.copy_id,
-				l.user_id,
-				l.due_date,
-				l.status AS loan_status
-			FROM loan l
-			JOIN book_copy c ON c.copy_id = l.copy_id
-			WHERE c.barcode = ?
-			  AND l.status IN ('BORROWED', 'OVERDUE')
-			  AND l.return_date IS NULL
-			FOR UPDATE OF l, c
-		`, barcode).Scan(&loan).Error
+    SELECT
+        l.loan_id,
+        l.copy_id,
+        l.user_id,
+        l.due_date,
+        l.status AS loan_status,
+
+        COALESCE(
+            NULLIF(
+                BTRIM(
+                    CONCAT_WS(
+                        ' ',
+                        NULLIF(BTRIM(up.first_name), ''),
+                        NULLIF(BTRIM(up.middle_name), ''),
+                        NULLIF(BTRIM(up.last_name), ''),
+                        NULLIF(BTRIM(up.suffix_extension), '')
+                    )
+                ),
+                ''
+            ),
+            NULLIF(u.username, ''),
+            NULLIF(u.email_address, ''),
+            CONCAT('User #', l.user_id)
+        ) AS borrower
+
+    FROM loan l
+    JOIN book_copy c
+        ON c.copy_id = l.copy_id
+    JOIN "user" u
+        ON u.user_id = l.user_id
+    LEFT JOIN user_profile up
+        ON up.user_id = u.user_id
+
+    WHERE c.barcode = ?
+      AND l.status IN ('BORROWED', 'OVERDUE')
+      AND l.return_date IS NULL
+
+    FOR UPDATE OF l, c
+`, barcode).Scan(&loan).Error
 		if err != nil {
 			return err
 		}
@@ -404,6 +432,7 @@ func ReturnBook(
 			LoanID:      loan.LoanID,
 			CopyID:      loan.CopyID,
 			UserID:      loan.UserID,
+			Borrower:    loan.Borrower,
 			Barcode:     barcode,
 			ReturnDate:  returnDate,
 			OverdueDays: overdueDays,
@@ -424,7 +453,7 @@ func ReturnBook(
 
 func GetRecentTransactions(
 	db *gorm.DB,
-	limit int,
 ) ([]repository.RecentTransaction, error) {
-	return repository.GetRecentTransactions(db, limit)
+	return repository.GetRecentTransactions(db)
+
 }
