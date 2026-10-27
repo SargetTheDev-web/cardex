@@ -4,6 +4,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"backend/internal/service"
@@ -64,6 +65,7 @@ func BorrowBookHandler(db *gorm.DB) gin.HandlerFunc {
 		)
 
 		if err != nil {
+			log.Printf("BorrowBook failed: %v", err)
 			switch {
 			case errors.Is(err, service.ErrInvalidBorrowRequest):
 				c.JSON(http.StatusBadRequest, gin.H{
@@ -90,6 +92,7 @@ func BorrowBookHandler(db *gorm.DB) gin.HandlerFunc {
 					"message": "The borrowing policy is missing or invalid",
 				})
 			default:
+
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"status":  http.StatusInternalServerError,
 					"error":   "borrow_failed",
