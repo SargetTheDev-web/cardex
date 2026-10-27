@@ -15,6 +15,9 @@ import (
 type borrowBookRequest struct {
 	UserID  int    `json:"user_id" binding:"required,gt=0"`
 	Barcode string `json:"barcode" binding:"required"`
+	BookID  int    `json:"book_id" binding:"required,gt=0"`
+	DueDate string `json:"due_date" binding:"required"`
+	Notes   string `json:"notes"`
 }
 
 func BorrowBookHandler(db *gorm.DB) gin.HandlerFunc {
@@ -52,6 +55,9 @@ func BorrowBookHandler(db *gorm.DB) gin.HandlerFunc {
 			db,
 			req.UserID,
 			req.Barcode,
+			req.BookID,
+			req.DueDate,
+			req.Notes,
 			staffID,
 			c.ClientIP(),
 			c.GetHeader("User-Agent"),
@@ -102,8 +108,10 @@ func BorrowBookHandler(db *gorm.DB) gin.HandlerFunc {
 }
 
 type returnBookRequest struct {
-	Barcode   string `json:"barcode" binding:"required"`
-	Condition string `json:"condition" binding:"required,oneof=GOOD DAMAGED"`
+	LoanID    int64   `json:"loan_id" binding:"required,gt=0"`
+	Amount    float64 `json:"amount"`
+	Condition string  `json:"condition" binding:"required,oneof=GOOD DAMAGED"`
+	Notes     string  `json:"notes"`
 }
 
 func ReturnBookHandler(db *gorm.DB) gin.HandlerFunc {
@@ -139,8 +147,9 @@ func ReturnBookHandler(db *gorm.DB) gin.HandlerFunc {
 
 		result, err := service.ReturnBook(
 			db,
-			req.Barcode,
+			req.LoanID,
 			req.Condition,
+			req.Notes,
 			staffID,
 			c.ClientIP(),
 			c.GetHeader("User-Agent"),

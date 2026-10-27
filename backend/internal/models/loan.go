@@ -14,6 +14,8 @@ type Loan struct {
 	RenewalCount int        `json:"renewal_count" gorm:"column:renewal_count;not null"`
 	Status       string     `json:"status" gorm:"column:status;not null"`
 	CreatedAt    time.Time  `json:"created_at" gorm:"column:created_at"`
+	BorrowNotes  *string    `json:"borrow_notes,omitempty" gorm:"column:borrow_notes"`
+	ReturnNotes  *string    `json:"return_notes,omitempty" gorm:"column:return_notes"`
 }
 
 func (Loan) TableName() string {

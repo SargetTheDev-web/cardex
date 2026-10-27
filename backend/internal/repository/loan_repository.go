@@ -37,6 +37,7 @@ func GetBorrowerAccount(tx *gorm.DB, userID int) (BorrowerAccount, error) {
 
 type LockedBookCopy struct {
 	CopyID     int     `gorm:"column:copy_id"`
+	BookID     int     `gorm:"column:book_id"`
 	Barcode    *string `gorm:"column:barcode"`
 	CopyStatus string  `gorm:"column:copy_status"`
 }
@@ -60,7 +61,9 @@ func GetDatabaseCurrentDate(tx *gorm.DB) (time.Time, error) {
 		CurrentDate time.Time `gorm:"column:current_date"`
 	}
 
-	err := tx.Raw("SELECT CURRENT_DATE AS current_date").Scan(&result).Error
+	err := tx.Raw("SELECT CURRENT_DATE AS current_date").
+		Scan(&result).Error
+
 	return result.CurrentDate, err
 }
 
@@ -106,7 +109,6 @@ func GetRecentTransactions(
 			l.loan_id,
 			l.user_id,
 			b.title AS book_title,
-
 			COALESCE(
 				NULLIF(
 					BTRIM(
@@ -124,19 +126,16 @@ func GetRecentTransactions(
 				NULLIF(u.email_address, ''),
 				CONCAT('User #', l.user_id)
 			) AS borrower,
-
 			CASE
 				WHEN l.status::text = 'BORROWED'
 				     AND l.due_date < CURRENT_DATE
 					THEN 'OVERDUE'
 				ELSE l.status::text
 			END AS status,
-
 			l.loan_date,
 			l.due_date,
 			l.return_date,
 			COALESCE(bc.barcode, '') AS barcode
-
 		FROM loan l
 		INNER JOIN book_copy bc
 			ON bc.copy_id = l.copy_id
@@ -146,12 +145,8 @@ func GetRecentTransactions(
 			ON u.user_id = l.user_id
 		LEFT JOIN user_profile up
 			ON up.user_id = u.user_id
-
 		ORDER BY
-			COALESCE(
-				l.return_date::timestamp,
-				l.created_at
-			) DESC,
+			COALESCE(l.return_date::timestamp, l.created_at) DESC,
 			l.loan_id DESC
 	`
 
