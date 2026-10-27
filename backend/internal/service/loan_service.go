@@ -127,7 +127,8 @@ func BorrowBook(
 		return nil, ErrInvalidBorrowRequest
 	}
 
-	parsedRequestedDueDate, err := time.Parse("2006-01-02", requestedDueDate)
+	// Validate the frontend's date format: YYYY-MM-DD.
+	parsedDueDate, err := time.Parse("2006-01-02", requestedDueDate)
 	if err != nil {
 		return nil, ErrInvalidBorrowRequest
 	}
@@ -152,15 +153,10 @@ func BorrowBook(
 			return ErrBorrowerNotEligible
 		}
 
-		var policyKey string
-
+		// Preserve role-based borrowing restrictions.
 		switch account.RoleCode {
-		case "STUDENT":
-			policyKey = "STUDENT_LOAN_DAYS"
-
-		case "FACULTY":
-			policyKey = "FACULTY_LOAN_DAYS"
-
+		case "STUDENT", "FACULTY":
+			// Allowed. Due date is supplied by the frontend.
 		case "GUEST":
 			enabled, err := getGuestBorrowingEnabled(tx)
 			if err != nil {
@@ -170,17 +166,11 @@ func BorrowBook(
 				return ErrBorrowerNotEligible
 			}
 			return fmt.Errorf(
-				"%w: guest loan duration has not been configured",
+				"%w: guest borrowing is enabled but a guest loan policy is not implemented",
 				ErrInvalidLoanPolicy,
 			)
-
 		default:
 			return ErrBorrowerNotEligible
-		}
-
-		loanDays, err := getPositivePolicyDays(tx, policyKey)
-		if err != nil {
-			return err
 		}
 
 		copy, err := repository.LockBookCopyByBarcode(tx, barcode)
@@ -212,10 +202,16 @@ func BorrowBook(
 			time.UTC,
 		)
 
-		dueDate := loanDate.AddDate(0, 0, loanDays)
+		dueDate := time.Date(
+			parsedDueDate.Year(),
+			parsedDueDate.Month(),
+			parsedDueDate.Day(),
+			0, 0, 0, 0,
+			time.UTC,
+		)
 
-		if !parsedRequestedDueDate.Equal(dueDate) {
-			return ErrDueDateMismatch
+		if dueDate.Before(loanDate) {
+			return ErrInvalidBorrowRequest
 		}
 
 		loan := model.Loan{
