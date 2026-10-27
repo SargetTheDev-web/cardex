@@ -162,6 +162,9 @@ type BookCatalogSummary struct {
 	TotalCopies     int64 `json:"total_copies"`
 	AvailableCopies int64 `json:"available_copies"`
 	BorrowedCopies  int64 `json:"borrowed_copies"`
+	ReservedCopies  int64 `json:"reserved_copies"`
+	OverdueLoans    int64 `json:"overdue_loans"`
+	ReservationsDue int64 `json:"reservations_due"`
 }
 
 func GetBookCatalogSummary(db *gorm.DB) (BookCatalogSummary, error) {
@@ -169,15 +172,36 @@ func GetBookCatalogSummary(db *gorm.DB) (BookCatalogSummary, error) {
 
 	err := db.Raw(`
         SELECT
-            (SELECT COUNT(*) FROM book) AS total_titles,
-            COUNT(*) AS total_copies,
-            COUNT(*) FILTER (
-                WHERE copy_status::text = 'AVAILABLE'
-            ) AS available_copies,
-            COUNT(*) FILTER (
-                WHERE copy_status::text = 'BORROWED'
-            ) AS borrowed_copies
-        FROM book_copy
+    (SELECT COUNT(*)
+     FROM book) AS total_titles,
+
+    (SELECT COUNT(*)
+     FROM book_copy) AS total_copies,
+
+    (SELECT COUNT(*)
+     FROM book_copy
+     WHERE copy_status::text = 'AVAILABLE') AS available_copies,
+
+    (SELECT COUNT(*)
+     FROM book_copy
+     WHERE copy_status::text = 'BORROWED') AS borrowed_copies,
+
+    (SELECT COUNT(*)
+     FROM book_copy
+     WHERE copy_status::text = 'RESERVED') AS reserved_copies,
+
+    (SELECT COUNT(*)
+     FROM loan
+     WHERE status::text = 'OVERDUE'
+        OR (
+            status::text = 'BORROWED'
+            AND due_date < CURRENT_DATE
+        )) AS overdue_loans,
+
+    (SELECT COUNT(*)
+     FROM reservation
+     WHERE status::text IN ('PENDING', 'NOTIFIED')
+       AND expiry_date <= CURRENT_DATE) AS reservations_due;
     `).Scan(&summary).Error
 
 	if err != nil {
