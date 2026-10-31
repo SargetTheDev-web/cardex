@@ -125,6 +125,21 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		"/book-copies/:id", handler.GetBookCopyHandler(db),
 	)
 
+	protected.POST(
+		"/reservations",
+		handler.CreateReservationHandler(db),
+	)
+
+	protected.GET(
+		"/reservations/mine",
+		handler.GetMyReservationsHandler(db),
+	)
+
+	protected.DELETE(
+		"/reservations/:reservation_id",
+		handler.CancelMyReservationHandler(db),
+	)
+
 	// Librarian
 	librarian := protected.Group("/")
 	librarian.Use(middleware.RequireLibrarianOrAdmin(db))
@@ -323,6 +338,20 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	circulation.GET(
 		"/transactions/recent",
 		handler.GetRecentTransactionsHandler(db),
+	)
+
+	circulation.GET("/reservations", handler.GetReservationQueueHandler(db))
+	circulation.POST(
+		"/reservations/:reservation_id/approve",
+		handler.ApproveReservationHandler(db),
+	)
+	circulation.POST(
+		"/reservations/:reservation_id/reject",
+		handler.RejectReservationHandler(db),
+	)
+	circulation.POST(
+		"/reservations/:reservation_id/fulfill",
+		handler.FulfillReservationHandler(db),
 	)
 
 }
