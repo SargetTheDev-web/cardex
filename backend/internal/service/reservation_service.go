@@ -256,8 +256,8 @@ func ApproveReservation(
 }
 
 type FulfillReservationInput struct {
-	DueDate     string
-	BorrowNotes string
+	DueDate     string `json:"due_date" binding:"required"`
+	BorrowNotes string `json:"borrow_notes"`
 }
 
 func GetMyReservations(db *gorm.DB, userID int) ([]model.Reservation, error) {
