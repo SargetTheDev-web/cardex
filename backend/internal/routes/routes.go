@@ -367,4 +367,10 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		"/reports/circulation-summary",
 		handler.GetCirculationSummaryHandler(db),
 	)
+
+	librarian.GET(
+		"/reports/overdue",
+		handler.GetOverdueReportHandler(db),
+	)
+
 }

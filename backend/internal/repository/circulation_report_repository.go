@@ -21,7 +21,6 @@ type CirculationReportRow struct {
 }
 
 type CirculationCategoryCount struct {
-	Status     int     `json:"status"`
 	Name       string  `json:"name"`
 	Percentage float64 `json:"percentage"`
 	Count      int64   `json:"count"`
