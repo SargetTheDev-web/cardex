@@ -378,4 +378,9 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.GetReservationsReportHandler(db),
 	)
 
+	librarian.GET(
+		"/reports/inventory",
+		handler.GetInventoryReportHandler(db),
+	)
+
 }
