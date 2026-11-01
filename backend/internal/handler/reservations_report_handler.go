@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -113,6 +114,8 @@ func GetReservationsReportHandler(db *gorm.DB) gin.HandlerFunc {
 			roleID,
 		)
 		if err != nil {
+			log.Printf("GetReservationsReportRows failed: %v", err)
+
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status":  http.StatusInternalServerError,
 				"message": "Failed to generate reservations report",
