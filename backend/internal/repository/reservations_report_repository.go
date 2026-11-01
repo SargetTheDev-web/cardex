@@ -47,12 +47,13 @@ func GetReservationsReportRows(
 				u.username
 			) AS borrower,
 			'Reservation' AS type,
-			CASE r.status
-				WHEN 'PENDING' THEN 'Pending'
-				WHEN 'NOTIFIED' THEN 'Ready'
-				WHEN 'FULFILLED' THEN 'Fulfilled'
-				ELSE INITCAP(LOWER(r.status))
-			END AS status,
+			CASE r.status::text
+    WHEN 'PENDING' THEN 'PENDING'
+    WHEN 'NOTIFIED' THEN 'NOTIFIED'
+    WHEN 'COMPLETED' THEN 'COMPLETED'
+    WHEN 'CANCELLED' THEN 'CANCELLED'
+    ELSE r.status::text
+END AS status,
 			u.user_id AS user_id,
 			COALESCE(c.category_name, 'Uncategorized') AS category
 		FROM reservation r

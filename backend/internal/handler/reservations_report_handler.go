@@ -151,11 +151,11 @@ func GetReservationsReportHandler(db *gorm.DB) gin.HandlerFunc {
 			categoryCounts[row.Category]++
 
 			switch row.Status {
-			case "Pending":
+			case "PENDING":
 				response.Summary.Pending++
-			case "Ready":
+			case "NOTIFIED":
 				response.Summary.Ready++
-			case "Fulfilled":
+			case "COMPLETED":
 				response.Summary.Fulfilled++
 			}
 		}
