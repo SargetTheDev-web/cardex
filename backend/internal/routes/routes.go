@@ -1,3 +1,5 @@
+// internal/routes/routes.go
+
 package routes
 
 import (
@@ -341,17 +343,28 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	)
 
 	circulation.GET("/reservations", handler.GetReservationQueueHandler(db))
+
 	circulation.POST(
 		"/reservations/:reservation_id/approve",
 		handler.ApproveReservationHandler(db),
 	)
+
 	circulation.POST(
 		"/reservations/:reservation_id/reject",
 		handler.RejectReservationHandler(db),
 	)
+
 	circulation.POST(
 		"/reservations/:reservation_id/fulfill",
 		handler.FulfillReservationHandler(db),
 	)
 
+	// --------------------------------------------------
+	// Reports and Analytics Module - LIBRARIAN OR ADMIN
+	// --------------------------------------------------
+
+	librarian.GET(
+		"/reports/circulation-summary",
+		handler.GetCirculationSummaryHandler(db),
+	)
 }
