@@ -373,4 +373,9 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.GetOverdueReportHandler(db),
 	)
 
+	librarian.GET(
+		"/reports/reservations",
+		handler.GetReservationsReportHandler(db),
+	)
+
 }
