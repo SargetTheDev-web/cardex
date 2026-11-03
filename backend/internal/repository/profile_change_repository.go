@@ -20,7 +20,7 @@ func CreateProfileChangeRequest(
 		var adminIDs []int
 		if err := tx.
 			Table(`"user"`).
-			Where("role_id = ? AND status = ?", 1, 3).
+			Where("role_id = ? AND status_id = ?", 1, 3).
 			Pluck("user_id", &adminIDs).Error; err != nil {
 			return err
 		}
