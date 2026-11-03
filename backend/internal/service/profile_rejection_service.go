@@ -3,7 +3,9 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -21,30 +23,29 @@ func RejectProfileChange(
 	ip string,
 	userAgent string,
 ) error {
-
 	reason = strings.TrimSpace(reason)
-
 	if reason == "" {
 		return errors.New("rejection reason is required")
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
-
-		request, err := repository.GetProfileChangeRequest(
-			tx,
-			changeRequestID,
-		)
-
+		request, err := repository.GetProfileChangeRequest(tx, changeRequestID)
 		if err != nil {
-			return errors.New(
-				"profile change request not found",
-			)
+			return errors.New("profile change request not found")
 		}
 
 		if request.Status != "PENDING" {
-			return errors.New(
-				"profile change request has already been processed",
-			)
+			return errors.New("profile change request has already been processed")
+		}
+
+		// Load the request owner's current account details for notification.
+		user, err := repository.GetUserByID(tx, request.UserID)
+		if err != nil {
+			return errors.New("user not found")
+		}
+
+		if strings.TrimSpace(user.EmailAddress) == "" {
+			return errors.New("user email is required to send the rejection notification")
 		}
 
 		now := time.Now()
@@ -68,9 +69,50 @@ func RejectProfileChange(
 		}
 
 		if result.RowsAffected != 1 {
-			return errors.New(
-				"profile change request was already processed",
-			)
+			return errors.New("profile change request was already processed")
+		}
+
+		// Create the in-app notification.
+		referenceType := "PROFILE_CHANGE"
+		referenceID := changeRequestID
+
+		notification := model.Notification{
+			UserID:        request.UserID,
+			Type:          "PROFILE_CHANGE",
+			Channel:       repository.NotificationChannelInApp,
+			Subject:       "Profile Change Rejected",
+			Message:       "Your profile change request was rejected. Reason: " + reason,
+			IsRead:        false,
+			ReferenceType: &referenceType,
+			ReferenceID:   &referenceID,
+		}
+
+		if err := tx.Create(&notification).Error; err != nil {
+			return fmt.Errorf("create rejection notification: %w", err)
+		}
+
+		// Queue the email; the existing outbox worker sends it.
+		details, err := json.Marshal([]model.EmailOutboxDetail{
+			{Label: "Request ID", Value: fmt.Sprintf("%d", changeRequestID)},
+			{Label: "Status", Value: "Rejected"},
+			{Label: "Reason", Value: reason},
+		})
+		if err != nil {
+			return fmt.Errorf("marshal rejection email details: %w", err)
+		}
+
+		email := model.EmailOutbox{
+			RecipientEmail: user.EmailAddress,
+			RecipientName:  user.Username,
+			Subject:        "CARDex Profile Change Rejected",
+			Heading:        "Profile Change Rejected",
+			Message:        "Your profile change request was rejected. Reason: " + reason,
+			Details:        details,
+			Status:         "PENDING",
+		}
+
+		if err := repository.EnqueueEmail(tx, &email); err != nil {
+			return fmt.Errorf("enqueue rejection email: %w", err)
 		}
 
 		if err := repository.InsertAuditLog(

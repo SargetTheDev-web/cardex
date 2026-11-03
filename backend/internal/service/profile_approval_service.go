@@ -3,7 +3,9 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	model "backend/internal/models"
@@ -309,6 +311,48 @@ func ApproveProfileChange(
 			return errors.New(
 				"profile change request was already processed",
 			)
+		}
+
+		// Notify the user in-app.
+		referenceType := "PROFILE_CHANGE"
+		referenceID := changeRequestID
+
+		notification := model.Notification{
+			UserID:        request.UserID,
+			Type:          "PROFILE_CHANGE",
+			Channel:       repository.NotificationChannelInApp,
+			Subject:       "Profile Change Approved",
+			Message:       "Your profile change request has been approved.",
+			IsRead:        false,
+			ReferenceType: &referenceType,
+			ReferenceID:   &referenceID,
+		}
+
+		if err := tx.Create(&notification).Error; err != nil {
+			return fmt.Errorf("create approval notification: %w", err)
+		}
+
+		// Queue the email in the same transaction.
+		details, err := json.Marshal([]model.EmailOutboxDetail{
+			{Label: "Request ID", Value: fmt.Sprintf("%d", changeRequestID)},
+			{Label: "Status", Value: "Approved"},
+		})
+		if err != nil {
+			return fmt.Errorf("marshal approval email details: %w", err)
+		}
+
+		email := model.EmailOutbox{
+			RecipientEmail: user.EmailAddress,
+			RecipientName:  user.Username,
+			Subject:        "CARDex Profile Change Approved",
+			Heading:        "Profile Change Approved",
+			Message:        "Your profile change request has been approved.",
+			Details:        details,
+			Status:         "PENDING",
+		}
+
+		if err := repository.EnqueueEmail(tx, &email); err != nil {
+			return fmt.Errorf("enqueue approval email: %w", err)
 		}
 
 		// ==================================================
