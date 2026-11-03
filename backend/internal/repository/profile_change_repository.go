@@ -12,7 +12,36 @@ func CreateProfileChangeRequest(
 	db *gorm.DB,
 	request *model.ProfileChangeRequest,
 ) error {
-	return db.Create(request).Error
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(request).Error; err != nil {
+			return err
+		}
+
+		var adminIDs []int
+		if err := tx.
+			Table(`"user"`).
+			Where("role_id = ? AND status = ?", 1, 3).
+			Pluck("user_id", &adminIDs).Error; err != nil {
+			return err
+		}
+
+		for _, adminID := range adminIDs {
+			notification := model.Notification{
+				UserID:  adminID,
+				Type:    "PROFILE_CHANGE",
+				Channel: NotificationChannelInApp,
+				Subject: "New Profile Change Request",
+				Message: "A profile change request is waiting for review.",
+				IsRead:  false,
+			}
+
+			if err := CreateNotification(tx, &notification); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 func GetPendingProfileChange(
