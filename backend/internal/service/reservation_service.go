@@ -3,6 +3,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -222,6 +223,10 @@ func ApproveReservation(
 			return err
 		}
 
+		if err := notifyReservationDecision(tx, &reservation, true); err != nil {
+			return err
+		}
+
 		if err := writeCirculationAudit(
 			tx,
 			staffID,
@@ -363,6 +368,10 @@ func RejectReservation(
 		}
 
 		if err := repository.CancelReservation(tx, reservationID); err != nil {
+			return err
+		}
+
+		if err := notifyReservationDecision(tx, &reservation, false); err != nil {
 			return err
 		}
 
@@ -559,4 +568,71 @@ func expireReservationsTx(tx *gorm.DB) error {
 		WHERE c.copy_id = e.copy_id
 		  AND c.copy_status = 'RESERVED'
 	`).Error
+}
+
+func notifyReservationDecision(
+	tx *gorm.DB,
+	reservation *model.Reservation,
+	approved bool,
+) error {
+	user, err := repository.GetUserByID(tx, reservation.UserID)
+	if err != nil {
+		return fmt.Errorf("get reservation owner: %w", err)
+	}
+
+	if strings.TrimSpace(user.EmailAddress) == "" {
+		return errors.New("reservation owner has no email address")
+	}
+
+	subject := "Reservation Rejected"
+	message := "Your book reservation was rejected."
+	status := "Rejected"
+
+	if approved {
+		subject = "Reservation Approved"
+		message = "Your book reservation has been approved and is ready for pickup."
+		status = "Approved"
+	}
+
+	referenceType := "RESERVATION"
+	referenceID := reservation.ReservationID
+
+	notification := model.Notification{
+		UserID:        reservation.UserID,
+		Type:          "RESERVATION",
+		Channel:       repository.NotificationChannelInApp,
+		Subject:       subject,
+		Message:       message,
+		IsRead:        false,
+		ReferenceType: &referenceType,
+		ReferenceID:   &referenceID,
+	}
+
+	if err := repository.CreateNotification(tx, &notification); err != nil {
+		return fmt.Errorf("create reservation notification: %w", err)
+	}
+
+	details, err := json.Marshal([]model.EmailOutboxDetail{
+		{Label: "Reservation ID", Value: fmt.Sprintf("%d", reservation.ReservationID)},
+		{Label: "Status", Value: status},
+	})
+	if err != nil {
+		return fmt.Errorf("marshal reservation email details: %w", err)
+	}
+
+	email := model.EmailOutbox{
+		RecipientEmail: user.EmailAddress,
+		RecipientName:  user.Username,
+		Subject:        "CARDex " + subject,
+		Heading:        subject,
+		Message:        message,
+		Details:        details,
+		Status:         "PENDING",
+	}
+
+	if err := repository.EnqueueEmail(tx, &email); err != nil {
+		return fmt.Errorf("enqueue reservation email: %w", err)
+	}
+
+	return nil
 }
