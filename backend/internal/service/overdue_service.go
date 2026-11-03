@@ -33,15 +33,6 @@ func (s *NotificationService) ProcessOverdueLoans() error {
 		JOIN "user" AS u ON u.user_id = l.user_id
 		WHERE l.status = 'BORROWED'
 		  AND l.due_date < CURRENT_DATE
-		  AND NOT EXISTS (
-			  SELECT 1
-			  FROM notification AS n
-			  WHERE n.user_id = l.user_id
-			    AND n.type = 'OVERDUE'
-			    AND n.channel = 'IN_APP'
-			    AND n.reference_type = 'LOAN'
-			    AND n.reference_id = l.loan_id
-		  )
 	`).Scan(&loans).Error
 	if err != nil {
 		return fmt.Errorf("find overdue loans: %w", err)
@@ -53,6 +44,24 @@ func (s *NotificationService) ProcessOverdueLoans() error {
 		}
 
 		err := s.db.Transaction(func(tx *gorm.DB) error {
+			// Update only if the loan is still BORROWED and overdue.
+			result := tx.Exec(`
+				UPDATE loan
+				SET status = ?
+				WHERE loan_id = ?
+				  AND status = ?
+				  AND due_date < CURRENT_DATE
+			`, "OVERDUE", loan.LoanID, "BORROWED")
+
+			if result.Error != nil {
+				return fmt.Errorf("update loan status to overdue: %w", result.Error)
+			}
+
+			// It may have been returned or updated after the initial query.
+			if result.RowsAffected != 1 {
+				return nil
+			}
+
 			referenceType := "LOAN"
 			referenceID := loan.LoanID
 
@@ -67,9 +76,8 @@ func (s *NotificationService) ProcessOverdueLoans() error {
 				ReferenceID:   &referenceID,
 			}
 
-			// Insert the in-app notification. The unique index prevents
-			// duplicate overdue notices for the same loan.
-			result := tx.Clauses(clause.OnConflict{
+			// The unique index prevents duplicate in-app notices for this loan.
+			result = tx.Clauses(clause.OnConflict{
 				Columns: []clause.Column{
 					{Name: "user_id"},
 					{Name: "type"},
@@ -101,7 +109,7 @@ func (s *NotificationService) ProcessOverdueLoans() error {
 			}
 
 			if result.RowsAffected == 0 {
-				// This overdue notification already exists; don't queue another email.
+				// The notification already exists; don't queue another email.
 				return nil
 			}
 
@@ -134,7 +142,7 @@ func (s *NotificationService) ProcessOverdueLoans() error {
 
 		if err != nil {
 			return fmt.Errorf(
-				"create overdue notices for loan %d: %w",
+				"process overdue loan %d: %w",
 				loan.LoanID,
 				err,
 			)
