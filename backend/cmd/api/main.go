@@ -1,17 +1,20 @@
-// main.go
+// cmd/api/main.go
 
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
 	"backend/internal/config"
 	"backend/internal/db"
 	"backend/internal/routes"
+	"backend/internal/service"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/robfig/cron/v3"
 )
 
 func main() {
@@ -21,6 +24,34 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Create one service instance for the overdue job and email worker.
+	notificationService := service.NewNotificationService(conn, nil)
+
+	// The worker and scheduler stop when main exits.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go notificationService.RunEmailOutboxWorker(ctx)
+
+	// Run once at startup.
+	if err := notificationService.ProcessOverdueLoans(); err != nil {
+		log.Printf("initial overdue notification run failed: %v", err)
+	}
+
+	// Then check for overdue loans every hour.
+	scheduler := cron.New()
+	_, err = scheduler.AddFunc("@every 1h", func() {
+		if err := notificationService.ProcessOverdueLoans(); err != nil {
+			log.Printf("overdue notification job failed: %v", err)
+		}
+	})
+	if err != nil {
+		log.Fatalf("register overdue notification job: %v", err)
+	}
+
+	scheduler.Start()
+	defer scheduler.Stop()
 
 	gin.SetMode(gin.ReleaseMode)
 
@@ -51,7 +82,6 @@ func main() {
 	routes.SetupRoutes(router, conn)
 
 	port := os.Getenv("APP_PORT")
-
 	if port == "" {
 		port = "8080"
 	}
