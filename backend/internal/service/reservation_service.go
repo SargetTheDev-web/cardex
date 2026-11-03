@@ -119,6 +119,35 @@ func CreateReservation(
 			return fmt.Errorf("%w: %v", ErrReservationConflict, err)
 		}
 
+		// Notify all active administrators and librarians.
+		var staffIDs []int
+		if err := tx.
+			Table(`"user"`).
+			Where("role_id IN ? AND status_id = ?", []int{1, 2, 3}, 3).
+			Pluck("user_id", &staffIDs).Error; err != nil {
+			return err
+		}
+
+		referenceType := "RESERVATION"
+		referenceID := reservation.ReservationID
+
+		for _, staffID := range staffIDs {
+			notification := model.Notification{
+				UserID:        staffID,
+				Type:          "RESERVATION",
+				Channel:       repository.NotificationChannelInApp,
+				Subject:       "New Reservation Request",
+				Message:       "A new book reservation is waiting for review.",
+				IsRead:        false,
+				ReferenceType: &referenceType,
+				ReferenceID:   &referenceID,
+			}
+
+			if err := repository.CreateNotification(tx, &notification); err != nil {
+				return err
+			}
+		}
+
 		if err := writeCirculationAudit(
 			tx,
 			userID,
@@ -129,8 +158,8 @@ func CreateReservation(
 				reservation.BookID,
 				pickupDate.Format("2006-01-02"),
 			),
-			"", // No client IP available in this service call yet.
-			"", // No User-Agent available in this service call yet.
+			ip,
+			userAgent,
 		); err != nil {
 			return err
 		}
