@@ -4,7 +4,9 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -214,6 +216,30 @@ func CompleteGoogleRegistration(
 			&profileChange,
 		); err != nil {
 			return errors.New("failed to create pending profile")
+		}
+
+		// Queue the registration confirmation email in the same transaction.
+		details, err := json.Marshal([]model.EmailOutboxDetail{
+			{Label: "Username", Value: user.Username},
+			{Label: "Requested Role", Value: input.Role},
+			{Label: "Status", Value: "Pending Approval"},
+		})
+		if err != nil {
+			return fmt.Errorf("marshal registration email details: %w", err)
+		}
+
+		email := model.EmailOutbox{
+			RecipientEmail: user.EmailAddress,
+			RecipientName:  user.Username,
+			Subject:        "CARDex Registration Received",
+			Heading:        "Registration Received",
+			Message:        "Your Google registration has been received. Your profile is pending administrator approval.",
+			Details:        details,
+			Status:         "PENDING",
+		}
+
+		if err := repository.EnqueueEmail(tx, &email); err != nil {
+			return fmt.Errorf("enqueue registration email: %w", err)
 		}
 
 		if err := repository.InsertAuditLog(
