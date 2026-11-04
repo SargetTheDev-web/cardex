@@ -148,9 +148,9 @@ func RecordAttendanceScan(
 			if err := tx.
 				Table("loan").
 				Where(
-					"user_id = ? AND status = ? AND due_date < CURRENT_DATE AND returned_at IS NULL",
+					"user_id = ? AND status = ?;",
 					userID,
-					"BORROWED",
+					"OVERDUE",
 				).
 				Count(&overdueCount).Error; err != nil {
 				return fmt.Errorf("check attendee overdue loans: %w", err)
