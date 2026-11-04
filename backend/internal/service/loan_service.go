@@ -298,23 +298,17 @@ func ReturnBook(
 	condition string,
 	returnNotes string,
 	fineAmount float64,
-	fineReason string,
 	staffID int,
 	ip string,
 	userAgent string,
 ) (*ReturnResult, error) {
 	condition = strings.ToUpper(strings.TrimSpace(condition))
 	returnNotes = strings.TrimSpace(returnNotes)
-	fineReason = strings.TrimSpace(fineReason)
 
 	if loanID <= 0 ||
 		staffID <= 0 ||
 		(condition != "GOOD" && condition != "DAMAGED") ||
 		fineAmount < 0 {
-		return nil, ErrInvalidReturnRequest
-	}
-
-	if fineAmount > 0 && fineReason == "" {
 		return nil, ErrInvalidReturnRequest
 	}
 
@@ -413,10 +407,15 @@ func ReturnBook(
 		// Use the amount and reason supplied to ReturnBook.
 		// A zero amount means no fine record is created.
 		if fineAmount > 0 {
+			fineReason := returnNotes
+			if fineReason == "" {
+				fineReason = "Fine assessed during book return"
+			}
+
 			if err := tx.Exec(`
-				INSERT INTO fine (loan_id, amount, reason, status)
-				VALUES (?, ?::numeric, ?, 'PENDING')
-			`, loan.LoanID, fineAmount, fineReason).Error; err != nil {
+        INSERT INTO fine (loan_id, amount, reason, status)
+        VALUES (?, ?::numeric, ?, 'PENDING')
+    `, loan.LoanID, fineAmount, fineReason).Error; err != nil {
 				return fmt.Errorf("create fine: %w", err)
 			}
 		}
