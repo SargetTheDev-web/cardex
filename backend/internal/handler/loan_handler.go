@@ -112,7 +112,8 @@ func BorrowBookHandler(db *gorm.DB) gin.HandlerFunc {
 
 type returnBookRequest struct {
 	LoanID    int64   `json:"loan_id" binding:"required,gt=0"`
-	Amount    float64 `json:"amount"`
+	Amount    float64 `json:"amount" binding:"gte=0"`
+	Reason    string  `json:"reason"`
 	Condition string  `json:"condition" binding:"required,oneof=GOOD DAMAGED"`
 	Notes     string  `json:"notes"`
 }
@@ -153,6 +154,8 @@ func ReturnBookHandler(db *gorm.DB) gin.HandlerFunc {
 			req.LoanID,
 			req.Condition,
 			req.Notes,
+			req.Amount,
+			req.Reason,
 			staffID,
 			c.ClientIP(),
 			c.GetHeader("User-Agent"),

@@ -5,7 +5,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -298,16 +297,24 @@ func ReturnBook(
 	loanID int64,
 	condition string,
 	returnNotes string,
+	fineAmount float64,
+	fineReason string,
 	staffID int,
 	ip string,
 	userAgent string,
 ) (*ReturnResult, error) {
 	condition = strings.ToUpper(strings.TrimSpace(condition))
 	returnNotes = strings.TrimSpace(returnNotes)
+	fineReason = strings.TrimSpace(fineReason)
 
 	if loanID <= 0 ||
 		staffID <= 0 ||
-		(condition != "GOOD" && condition != "DAMAGED") {
+		(condition != "GOOD" && condition != "DAMAGED") ||
+		fineAmount < 0 {
+		return nil, ErrInvalidReturnRequest
+	}
+
+	if fineAmount > 0 && fineReason == "" {
 		return nil, ErrInvalidReturnRequest
 	}
 
@@ -403,56 +410,14 @@ func ReturnBook(
 			return err
 		}
 
-		var fineAmount float64
-
-		if overdueDays > 0 {
-			rate, err := repository.GetSystemParameter(
-				tx,
-				"FINE_RATE_PER_DAY_PHP",
-			)
-			if err != nil {
-				return fmt.Errorf(
-					"%w: FINE_RATE_PER_DAY_PHP is unavailable",
-					ErrInvalidFinePolicy,
-				)
-			}
-
-			rate = strings.TrimSpace(rate)
-
-			rateValue, parseErr := strconv.ParseFloat(rate, 64)
-			if parseErr != nil || rateValue < 0 {
-				return ErrInvalidFinePolicy
-			}
-
-			if _, ok := new(big.Rat).SetString(rate); !ok {
-				return ErrInvalidFinePolicy
-			}
-
-			if rateValue > 0 {
-				if err := tx.Raw(`
-					SELECT (?::numeric * ?::numeric)::double precision
-				`, overdueDays, rate).Scan(&fineAmount).Error; err != nil {
-					return err
-				}
-
-				reason := fmt.Sprintf(
-					"Overdue return: %d day(s) at PHP %s per day",
-					overdueDays,
-					rate,
-				)
-
-				// This statement is what creates the fine record.
-				if err := tx.Exec(`
-					INSERT INTO fine (loan_id, amount, reason, status)
-					VALUES (
-						?,
-						(?::numeric * ?::numeric),
-						?,
-						'PENDING'
-					)
-				`, loan.LoanID, overdueDays, rate, reason).Error; err != nil {
-					return err
-				}
+		// Use the amount and reason supplied to ReturnBook.
+		// A zero amount means no fine record is created.
+		if fineAmount > 0 {
+			if err := tx.Exec(`
+				INSERT INTO fine (loan_id, amount, reason, status)
+				VALUES (?, ?::numeric, ?, 'PENDING')
+			`, loan.LoanID, fineAmount, fineReason).Error; err != nil {
+				return fmt.Errorf("create fine: %w", err)
 			}
 		}
 
