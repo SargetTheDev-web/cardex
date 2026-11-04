@@ -359,6 +359,13 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.FulfillReservationHandler(db),
 	)
 
+	circulation.GET("/fines", handler.GetFinesHandler(db))
+
+	circulation.PATCH(
+		"/fines/:fine_id/status",
+		handler.UpdateFineStatusHandler(db),
+	)
+
 	// --------------------------------------------------
 	// Reports and Analytics Module - LIBRARIAN OR ADMIN
 	// --------------------------------------------------
