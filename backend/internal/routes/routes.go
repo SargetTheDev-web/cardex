@@ -383,4 +383,14 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.GetInventoryReportHandler(db),
 	)
 
+	notifications := protected.Group("/notifications")
+	{
+		notifications.GET("", handler.GetNotificationsHandler(db))
+		notifications.GET("/unread", handler.GetUnreadNotificationsHandler(db))
+		notifications.GET("/unread-count", handler.GetUnreadNotificationCountHandler(db))
+		notifications.PATCH("/:id/read", handler.MarkNotificationAsReadHandler(db))
+		notifications.PATCH("/read-all", handler.MarkAllNotificationsAsReadHandler(db))
+		notifications.DELETE("/:id", handler.DeleteNotificationHandler(db))
+	}
+
 }

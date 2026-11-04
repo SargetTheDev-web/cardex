@@ -150,3 +150,38 @@ func DeleteNotification(
 
 	return result.RowsAffected > 0, nil
 }
+
+// GetUnreadUserNotifications returns the authenticated user's unread
+// in-app notifications, newest first.
+func GetUnreadUserNotifications(
+	db *gorm.DB,
+	userID int,
+	limit int,
+	offset int,
+) ([]model.Notification, error) {
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	notifications := make([]model.Notification, 0)
+
+	err := db.
+		Where(
+			"user_id = ? AND channel = ? AND is_read = FALSE",
+			userID,
+			NotificationChannelInApp,
+		).
+		Order("created_at DESC, notification_id DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&notifications).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return notifications, nil
+}

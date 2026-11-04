@@ -150,3 +150,77 @@ func validateNotificationInput(
 
 	return nil
 }
+
+func (s *NotificationService) GetUserNotifications(
+	userID int,
+	limit int,
+	offset int,
+) ([]model.Notification, error) {
+	if userID <= 0 {
+		return nil, errors.New("user_id must be positive")
+	}
+
+	return repository.GetUserNotifications(s.db, userID, limit, offset)
+}
+
+func (s *NotificationService) GetUnreadUserNotifications(
+	userID int,
+	limit int,
+	offset int,
+) ([]model.Notification, error) {
+	if userID <= 0 {
+		return nil, errors.New("user_id must be positive")
+	}
+
+	return repository.GetUnreadUserNotifications(s.db, userID, limit, offset)
+}
+
+func (s *NotificationService) GetUnreadCount(
+	userID int,
+) (int64, error) {
+	if userID <= 0 {
+		return 0, errors.New("user_id must be positive")
+	}
+
+	return repository.CountUnreadNotifications(s.db, userID)
+}
+
+func (s *NotificationService) MarkAsRead(
+	userID int,
+	notificationID int64,
+) (bool, error) {
+	if userID <= 0 || notificationID <= 0 {
+		return false, errors.New("user_id and notification_id must be positive")
+	}
+
+	return repository.MarkNotificationAsRead(
+		s.db,
+		userID,
+		notificationID,
+	)
+}
+
+func (s *NotificationService) MarkAllAsRead(
+	userID int,
+) (int64, error) {
+	if userID <= 0 {
+		return 0, errors.New("user_id must be positive")
+	}
+
+	return repository.MarkAllNotificationsAsRead(s.db, userID)
+}
+
+func (s *NotificationService) Delete(
+	userID int,
+	notificationID int64,
+) (bool, error) {
+	if userID <= 0 || notificationID <= 0 {
+		return false, errors.New("user_id and notification_id must be positive")
+	}
+
+	return repository.DeleteNotification(
+		s.db,
+		userID,
+		notificationID,
+	)
+}
