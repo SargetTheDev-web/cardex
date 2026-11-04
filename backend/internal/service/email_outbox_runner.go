@@ -15,19 +15,22 @@ import (
 
 func (s *NotificationService) RunEmailOutboxWorker(ctx context.Context) {
 	const (
-		pollInterval = 10 * time.Second
-		staleAfter   = 15 * time.Minute
+		pollInterval     = 10 * time.Second
+		recoveryInterval = 5 * time.Minute
+		staleAfter       = 15 * time.Minute
 	)
 
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
+	pollTicker := time.NewTicker(pollInterval)
+	defer pollTicker.Stop()
+
+	recoveryTicker := time.NewTicker(recoveryInterval)
+	defer recoveryTicker.Stop()
 
 	if err := repository.RecoverStaleEmailClaims(s.db, staleAfter); err != nil {
 		log.Printf("email outbox recovery failed: %v", err)
 	}
 
 	for {
-		// Process queued emails until the queue is empty.
 		for {
 			if ctx.Err() != nil {
 				return
@@ -35,18 +38,22 @@ func (s *NotificationService) RunEmailOutboxWorker(ctx context.Context) {
 
 			err := s.ProcessNextOutboxEmail(ctx)
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				break // Nothing currently due.
+				break
 			}
 			if err != nil {
 				log.Printf("email outbox worker: %v", err)
-				break // Avoid a tight retry loop on persistent errors.
+				break
 			}
 		}
 
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+
+		case <-pollTicker.C:
+			// Queue polling is handled at the top of the loop.
+
+		case <-recoveryTicker.C:
 			if err := repository.RecoverStaleEmailClaims(s.db, staleAfter); err != nil {
 				log.Printf("email outbox recovery failed: %v", err)
 			}
