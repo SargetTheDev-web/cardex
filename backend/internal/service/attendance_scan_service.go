@@ -7,6 +7,7 @@ import (
 	_ "time/tzdata"
 
 	model "backend/internal/models"
+	"backend/internal/repository"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -64,7 +65,6 @@ func RecordAttendanceScan(
 	var scanType string
 
 	err = db.Transaction(func(tx *gorm.DB) error {
-		// Serialize scans for this user to avoid concurrent state changes.
 		var user model.User
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Select("user_id", "status_id").
@@ -81,7 +81,6 @@ func RecordAttendanceScan(
 			return ErrAttendanceUserInactive
 		}
 
-		// Find the latest scan for this user, campus, and Manila day.
 		var previous model.AttendanceLog
 		err = tx.Where(
 			"user_id = ? AND campus = ? AND scanned_at >= ? AND scanned_at < ?",
@@ -141,6 +140,51 @@ func RecordAttendanceScan(
 				DoNothing: true,
 			}).Create(&day).Error; err != nil {
 				return fmt.Errorf("insert daily attendance credit: %w", err)
+			}
+
+			// Alert active admins, librarians, and staff if the attendee
+			// has one or more overdue loans.
+			var overdueCount int64
+			if err := tx.
+				Table("loan").
+				Where(
+					"user_id = ? AND status = ? AND due_date < CURRENT_DATE AND returned_at IS NULL",
+					userID,
+					"BORROWED",
+				).
+				Count(&overdueCount).Error; err != nil {
+				return fmt.Errorf("check attendee overdue loans: %w", err)
+			}
+
+			if overdueCount > 0 {
+				var staffIDs []int
+				if err := tx.
+					Table(`"user"`).
+					Where("role_id IN ? AND status_id = ?", []int{1, 2, 3}, 3).
+					Pluck("user_id", &staffIDs).Error; err != nil {
+					return fmt.Errorf("load active staff recipients: %w", err)
+				}
+
+				message := fmt.Sprintf(
+					"User ID %d checked in and has %d overdue loan(s).",
+					userID,
+					overdueCount,
+				)
+
+				for _, staffID := range staffIDs {
+					notification := model.Notification{
+						UserID:  staffID,
+						Type:    "ATTENDANCE",
+						Channel: repository.NotificationChannelInApp,
+						Subject: "Attendee Has Overdue Loans",
+						Message: message,
+						IsRead:  false,
+					}
+
+					if err := repository.CreateNotification(tx, &notification); err != nil {
+						return fmt.Errorf("notify staff about overdue attendee: %w", err)
+					}
+				}
 			}
 		}
 
