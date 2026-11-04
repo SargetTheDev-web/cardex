@@ -305,6 +305,11 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.GetAllSystemParametersHandler(db),
 	)
 
+	admin.GET(
+		"/audit/dashboard",
+		handler.GetAuditDashboardHandler(db),
+	)
+
 	// --------------------------------------------------
 	// Attendance kiosk - LIBRARIAN OR ADMIN
 	// --------------------------------------------------
