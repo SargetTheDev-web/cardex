@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -36,6 +37,8 @@ func ActivateAttendanceKiosk(
 	activatedBy int,
 	campus string,
 	duration time.Duration,
+	ipAddress string,
+	userAgent string,
 ) (*AttendanceKioskActivation, error) {
 	if activatedBy <= 0 {
 		return nil, errors.New("invalid activating user")
@@ -48,20 +51,16 @@ func ActivateAttendanceKiosk(
 	if len(campus) > 50 {
 		return nil, errors.New("campus must not exceed 50 characters")
 	}
-
 	if duration <= 0 || duration > MaxKioskSessionDuration {
 		return nil, errors.New("invalid kiosk session duration")
 	}
 
-	// Generate 32 cryptographically secure random bytes.
 	randomBytes := make([]byte, 32)
 	if _, err := rand.Read(randomBytes); err != nil {
 		return nil, errors.New("failed to generate kiosk credential")
 	}
 
 	credential := base64.RawURLEncoding.EncodeToString(randomBytes)
-
-	// Store only the SHA-256 hash, never the raw credential.
 	hashBytes := sha256.Sum256([]byte(credential))
 	credentialHash := hex.EncodeToString(hashBytes[:])
 
@@ -74,7 +73,39 @@ func ActivateAttendanceKiosk(
 		ExpiresAt:      now.Add(duration),
 	}
 
-	if err := repository.CreateAttendanceKioskSession(db, session); err != nil {
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := repository.CreateAttendanceKioskSession(tx, session); err != nil {
+			return err
+		}
+
+		actionID, err := repository.GetAuditActionID(tx, "CREATE")
+		if err != nil {
+			return err
+		}
+		moduleID, err := repository.GetAuditModuleID(tx, "ATTENDANCE")
+		if err != nil {
+			return err
+		}
+
+		actorID := activatedBy
+		description := fmt.Sprintf(
+			"Attendance kiosk activated: session_id=%d, campus=%s, expires_at=%s",
+			session.KioskSessionID,
+			session.Campus,
+			session.ExpiresAt.Format(time.RFC3339),
+		)
+
+		return repository.InsertAuditLog(
+			tx,
+			&actorID,
+			actionID,
+			moduleID,
+			description,
+			ipAddress,
+			userAgent,
+		)
+	})
+	if err != nil {
 		return nil, errors.New("failed to activate attendance kiosk")
 	}
 
@@ -120,10 +151,53 @@ func ValidateAttendanceKioskCredential(
 func DeactivateAttendanceKiosk(
 	db *gorm.DB,
 	sessionID int64,
+	deactivatedBy int,
+	ipAddress string,
+	userAgent string,
 ) error {
 	if sessionID <= 0 {
 		return errors.New("invalid kiosk session ID")
 	}
+	if deactivatedBy <= 0 {
+		return errors.New("invalid deactivating user")
+	}
 
-	return repository.RevokeAttendanceKioskSession(db, sessionID)
+	return db.Transaction(func(tx *gorm.DB) error {
+		var session model.AttendanceKioskSession
+		if err := tx.
+			Where("kiosk_session_id = ?", sessionID).
+			First(&session).Error; err != nil {
+			return err
+		}
+
+		if err := repository.RevokeAttendanceKioskSession(tx, sessionID); err != nil {
+			return err
+		}
+
+		actionID, err := repository.GetAuditActionID(tx, "UPDATE")
+		if err != nil {
+			return err
+		}
+		moduleID, err := repository.GetAuditModuleID(tx, "ATTENDANCE")
+		if err != nil {
+			return err
+		}
+
+		actorID := deactivatedBy
+		description := fmt.Sprintf(
+			"Attendance kiosk deactivated: session_id=%d, campus=%s",
+			session.KioskSessionID,
+			session.Campus,
+		)
+
+		return repository.InsertAuditLog(
+			tx,
+			&actorID,
+			actionID,
+			moduleID,
+			description,
+			ipAddress,
+			userAgent,
+		)
+	})
 }
