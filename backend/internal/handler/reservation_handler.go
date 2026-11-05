@@ -81,7 +81,9 @@ func CreateReservationHandler(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"status": "success", "message": result.Message, "data": result.Reservation,
+			"status":  "success",
+			"message": result.Message,
+			"data":    result.Data,
 		})
 	}
 }

@@ -30,6 +30,11 @@ type CreateReservationInput struct {
 	Notes               string `json:"notes"`
 }
 
+type CreateReservationResult struct {
+	Data    repository.ReservationCreatedDetails
+	Message string
+}
+
 type ReservationResult struct {
 	Reservation model.Reservation `json:"reservation"`
 	Message     string            `json:"message"`
@@ -41,7 +46,7 @@ func CreateReservation(
 	input CreateReservationInput,
 	ip string,
 	userAgent string,
-) (*ReservationResult, error) {
+) (*CreateReservationResult, error) {
 	notes := strings.TrimSpace(input.Notes)
 
 	if userID <= 0 || input.BookID <= 0 {
@@ -172,9 +177,14 @@ func CreateReservation(
 		return nil, err
 	}
 
-	return &ReservationResult{
-		Reservation: result,
-		Message:     "Reservation submitted successfully",
+	details, err := repository.GetCreatedReservationDetails(db, result.ReservationID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CreateReservationResult{
+		Data:    details,
+		Message: "Reservation submitted successfully",
 	}, nil
 }
 
@@ -410,7 +420,7 @@ func RejectReservation(
 			"UPDATE",
 			fmt.Sprintf(
 				"Rejected reservation ID %d for user ID %d",
-				reservationID,
+				reservation.ReservationID,
 				reservation.UserID,
 			),
 			ip,

@@ -158,3 +158,46 @@ func CancelReservation(
 
 	return nil
 }
+
+type ReservationCreatedDetails struct {
+	ReservationID       int64   `gorm:"column:reservation_id"`
+	BookID              int     `gorm:"column:book_id"`
+	BookTitle           string  `gorm:"column:book_title"`
+	UserID              int     `gorm:"column:user_id"`
+	RealName            string  `gorm:"column:real_name"`
+	PreferredPickupDate string  `gorm:"column:preferred_pickup_date"`
+	Notes               *string `gorm:"column:notes"`
+	Status              string  `gorm:"column:status"`
+	QueuePosition       *int    `gorm:"column:queue_position"`
+}
+
+func GetCreatedReservationDetails(
+	db *gorm.DB,
+	reservationID int64,
+) (ReservationCreatedDetails, error) {
+	var details ReservationCreatedDetails
+
+	err := db.Raw(`
+		SELECT
+			r.reservation_id,
+			r.book_id,
+			b.title AS book_title,
+			r.user_id,
+			TRIM(CONCAT_WS(' ',
+				NULLIF(TRIM(up.first_name), ''),
+				NULLIF(TRIM(up.middle_name), ''),
+				NULLIF(TRIM(up.last_name), ''),
+				NULLIF(TRIM(up.suffix_extension), '')
+			)) AS real_name,
+			r.preferred_pickup_date,
+			r.reason AS notes,
+			r.status,
+			r.queue_position
+		FROM reservation r
+		JOIN book b ON b.book_id = r.book_id
+		JOIN user_profile up ON up.user_id = r.user_id
+		WHERE r.reservation_id = ?
+	`, reservationID).Scan(&details).Error
+
+	return details, err
+}
