@@ -62,6 +62,8 @@ func ActivateAttendanceKioskHandler(db *gorm.DB) gin.HandlerFunc {
 			userID,
 			req.Campus,
 			time.Duration(req.DurationHours)*time.Hour,
+			c.ClientIP(),
+			c.Request.UserAgent(),
 		)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -96,7 +98,31 @@ func DeactivateAttendanceKioskHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		err := service.DeactivateAttendanceKiosk(db, req.SessionID)
+		userIDValue, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status": http.StatusUnauthorized,
+				"error":  "unauthorized",
+			})
+			return
+		}
+
+		userID, ok := userIDValue.(int)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status": http.StatusUnauthorized,
+				"error":  "invalid user identity",
+			})
+			return
+		}
+		err := service.DeactivateAttendanceKiosk(
+			db,
+			req.SessionID,
+			userID,
+			c.ClientIP(),
+			c.Request.UserAgent(),
+		)
+
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{
