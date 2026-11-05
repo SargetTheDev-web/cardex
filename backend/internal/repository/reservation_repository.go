@@ -217,6 +217,8 @@ type ReservationQueueItem struct {
 	QueuePosition       *int       `json:"queue_position" gorm:"column:queue_position"`
 	ExpiryDate          *time.Time `json:"expiry_date" gorm:"column:expiry_date"`
 	CreatedAt           time.Time  `json:"created_at" gorm:"column:created_at"`
+	Role                string     `json:"role" gorm:"column:role"`
+	InstitutionalID     *string    `json:"institutional_id" gorm:"column:institutional_id"`
 }
 
 func GetReservationQueue(db *gorm.DB) ([]ReservationQueueItem, error) {
@@ -224,29 +226,32 @@ func GetReservationQueue(db *gorm.DB) ([]ReservationQueueItem, error) {
 
 	err := db.Raw(`
 		SELECT
-			r.reservation_id,
-			r.book_id,
-			b.title AS book_title,
-			r.user_id,
-			TRIM(CONCAT_WS(' ',
-				NULLIF(TRIM(up.first_name), ''),
-				NULLIF(TRIM(up.middle_name), ''),
-				NULLIF(TRIM(up.last_name), ''),
-				NULLIF(TRIM(up.suffix_extension), '')
-			)) AS borrower_name,
-			r.copy_id,
-			r.reservation_date,
-			r.preferred_pickup_date,
-			r.status,
-			r.reason,
-			r.queue_position,
-			r.expiry_date,
-			r.created_at
-		FROM reservation r
-		JOIN book b ON b.book_id = r.book_id
-		LEFT JOIN user_profile up ON up.user_id = r.user_id
-		WHERE r.status IN ('PENDING', 'NOTIFIED')
-		ORDER BY r.reservation_date ASC, r.reservation_id ASC
+    r.reservation_id,
+    r.book_id,
+    b.title AS book_title,
+    r.user_id,
+    u.role AS role,
+    u.institutional_id AS institutional_id,
+    TRIM(CONCAT_WS(' ',
+        NULLIF(TRIM(up.first_name), ''),
+        NULLIF(TRIM(up.middle_name), ''),
+        NULLIF(TRIM(up.last_name), ''),
+        NULLIF(TRIM(up.suffix_extension), '')
+    )) AS borrower_name,
+    r.copy_id,
+    r.reservation_date,
+    r.preferred_pickup_date,
+    r.status,
+    r.reason,
+    r.queue_position,
+    r.expiry_date,
+    r.created_at
+FROM reservation r
+JOIN book b ON b.book_id = r.book_id
+JOIN "user" u ON u.user_id = r.user_id
+LEFT JOIN user_profile up ON up.user_id = r.user_id
+WHERE r.status IN ('PENDING', 'NOTIFIED')
+ORDER BY r.reservation_date ASC, r.reservation_id ASC
 	`).Scan(&reservations).Error
 
 	if reservations == nil {
