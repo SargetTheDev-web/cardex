@@ -230,7 +230,7 @@ func GetReservationQueue(db *gorm.DB) ([]ReservationQueueItem, error) {
     r.book_id,
     b.title AS book_title,
     r.user_id,
-    u.role AS role,
+    u.role_id AS role,
     u.institutional_id AS institutional_id,
     TRIM(CONCAT_WS(' ',
         NULLIF(TRIM(up.first_name), ''),
