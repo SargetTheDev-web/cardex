@@ -217,6 +217,7 @@ type ReservationQueueItem struct {
 	QueuePosition       *int       `json:"queue_position" gorm:"column:queue_position"`
 	ExpiryDate          *time.Time `json:"expiry_date" gorm:"column:expiry_date"`
 	CreatedAt           time.Time  `json:"created_at" gorm:"column:created_at"`
+	RoleID              int        `json:"role_id" gorm:"column:role_id"`
 	Role                string     `json:"role" gorm:"column:role"`
 	InstitutionalID     *string    `json:"institutional_id" gorm:"column:institutional_id"`
 }
@@ -231,7 +232,8 @@ func GetReservationQueue(db *gorm.DB) ([]ReservationQueueItem, error) {
     b.title AS book_title,
     r.user_id,
     u.role_id AS role_id,
-    up.institutional_id AS institutional_id,
+ur.role_name AS role,
+up.institutional_id AS institutional_id,
     TRIM(CONCAT_WS(' ',
         NULLIF(TRIM(up.first_name), ''),
         NULLIF(TRIM(up.middle_name), ''),
