@@ -4,6 +4,7 @@ package repository
 
 import (
 	"errors"
+	"time"
 
 	model "backend/internal/models"
 
@@ -200,4 +201,57 @@ func GetCreatedReservationDetails(
 	`, reservationID).Scan(&details).Error
 
 	return details, err
+}
+
+type ReservationQueueItem struct {
+	ReservationID       int64      `json:"reservation_id" gorm:"column:reservation_id"`
+	BookID              int        `json:"book_id" gorm:"column:book_id"`
+	BookTitle           string     `json:"book_title" gorm:"column:book_title"`
+	UserID              int        `json:"user_id" gorm:"column:user_id"`
+	BorrowerName        string     `json:"borrower_name" gorm:"column:borrower_name"`
+	CopyID              *int       `json:"copy_id" gorm:"column:copy_id"`
+	ReservationDate     time.Time  `json:"reservation_date" gorm:"column:reservation_date"`
+	PreferredPickupDate time.Time  `json:"preferred_pickup_date" gorm:"column:preferred_pickup_date"`
+	Status              string     `json:"status" gorm:"column:status"`
+	Reason              *string    `json:"reason" gorm:"column:reason"`
+	QueuePosition       *int       `json:"queue_position" gorm:"column:queue_position"`
+	ExpiryDate          *time.Time `json:"expiry_date" gorm:"column:expiry_date"`
+	CreatedAt           time.Time  `json:"created_at" gorm:"column:created_at"`
+}
+
+func GetReservationQueue(db *gorm.DB) ([]ReservationQueueItem, error) {
+	var reservations []ReservationQueueItem
+
+	err := db.Raw(`
+		SELECT
+			r.reservation_id,
+			r.book_id,
+			b.title AS book_title,
+			r.user_id,
+			TRIM(CONCAT_WS(' ',
+				NULLIF(TRIM(up.first_name), ''),
+				NULLIF(TRIM(up.middle_name), ''),
+				NULLIF(TRIM(up.last_name), ''),
+				NULLIF(TRIM(up.suffix_extension), '')
+			)) AS borrower_name,
+			r.copy_id,
+			r.reservation_date,
+			r.preferred_pickup_date,
+			r.status,
+			r.reason,
+			r.queue_position,
+			r.expiry_date,
+			r.created_at
+		FROM reservation r
+		JOIN book b ON b.book_id = r.book_id
+		LEFT JOIN user_profile up ON up.user_id = r.user_id
+		WHERE r.status IN ('PENDING', 'NOTIFIED')
+		ORDER BY r.reservation_date ASC, r.reservation_id ASC
+	`).Scan(&reservations).Error
+
+	if reservations == nil {
+		reservations = []ReservationQueueItem{}
+	}
+
+	return reservations, err
 }

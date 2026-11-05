@@ -320,21 +320,12 @@ func GetMyReservations(db *gorm.DB, userID int) ([]model.Reservation, error) {
 	return reservations, err
 }
 
-func GetReservationQueue(db *gorm.DB) ([]model.Reservation, error) {
-	// Expire reservations before returning the queue.
+func GetReservationQueue(db *gorm.DB) ([]repository.ReservationQueueItem, error) {
 	if err := ExpireReservations(db); err != nil {
 		return nil, err
 	}
 
-	var reservations []model.Reservation
-	err := db.
-		Where("status IN ('PENDING', 'NOTIFIED')").
-		Order("reservation_date ASC, reservation_id ASC").
-		Find(&reservations).Error
-	if reservations == nil {
-		reservations = []model.Reservation{}
-	}
-	return reservations, err
+	return repository.GetReservationQueue(db)
 }
 
 func CancelMyReservation(
