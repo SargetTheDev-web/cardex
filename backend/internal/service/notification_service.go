@@ -155,7 +155,7 @@ func (s *NotificationService) GetUserNotifications(
 	userID int,
 	limit int,
 	offset int,
-) ([]model.Notification, error) {
+) ([]model.NotificationResponse, error) {
 	if userID <= 0 {
 		return nil, errors.New("user_id must be positive")
 	}
@@ -167,7 +167,7 @@ func (s *NotificationService) GetUnreadUserNotifications(
 	userID int,
 	limit int,
 	offset int,
-) ([]model.Notification, error) {
+) ([]model.NotificationResponse, error) {
 	if userID <= 0 {
 		return nil, errors.New("user_id must be positive")
 	}

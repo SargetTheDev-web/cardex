@@ -21,3 +21,19 @@ type Notification struct {
 func (Notification) TableName() string {
 	return "notification"
 }
+
+type NotificationResponse struct {
+	NotificationID  int64     `json:"notification_id"`
+	UserID          int       `json:"user_id"`
+	Name            string    `json:"name"`
+	Role            string    `json:"role"`
+	InstitutionalID *string   `json:"institutional_id,omitempty"`
+	Type            string    `json:"type"`
+	Channel         string    `json:"channel"`
+	Subject         string    `json:"subject"`
+	Message         string    `json:"message"`
+	IsRead          bool      `json:"is_read"`
+	CreatedAt       time.Time `json:"created_at"`
+	ReferenceType   *string   `json:"reference_type,omitempty"`
+	ReferenceID     *int64    `json:"reference_id,omitempty"`
+}

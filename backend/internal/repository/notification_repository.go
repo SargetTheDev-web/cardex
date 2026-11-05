@@ -35,33 +35,8 @@ func GetUserNotifications(
 	userID int,
 	limit int,
 	offset int,
-) ([]model.Notification, error) {
-	if limit < 1 || limit > 100 {
-		limit = 20
-	}
-
-	if offset < 0 {
-		offset = 0
-	}
-
-	notifications := make([]model.Notification, 0)
-
-	err := db.
-		Where(
-			"user_id = ? AND channel = ?",
-			userID,
-			NotificationChannelInApp,
-		).
-		Order("created_at DESC, notification_id DESC").
-		Limit(limit).
-		Offset(offset).
-		Find(&notifications).Error
-
-	if err != nil {
-		return nil, err
-	}
-
-	return notifications, nil
+) ([]model.NotificationResponse, error) {
+	return getNotificationResponses(db, userID, limit, offset, false)
 }
 
 // CountUnreadNotifications returns the user's unread in-app notification count.
@@ -158,7 +133,17 @@ func GetUnreadUserNotifications(
 	userID int,
 	limit int,
 	offset int,
-) ([]model.Notification, error) {
+) ([]model.NotificationResponse, error) {
+	return getNotificationResponses(db, userID, limit, offset, true)
+}
+
+func getNotificationResponses(
+	db *gorm.DB,
+	userID int,
+	limit int,
+	offset int,
+	unreadOnly bool,
+) ([]model.NotificationResponse, error) {
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
@@ -166,19 +151,43 @@ func GetUnreadUserNotifications(
 		offset = 0
 	}
 
-	notifications := make([]model.Notification, 0)
+	notifications := make([]model.NotificationResponse, 0)
 
-	err := db.
-		Where(
-			"user_id = ? AND channel = ? AND is_read = FALSE",
-			userID,
-			NotificationChannelInApp,
-		).
-		Order("created_at DESC, notification_id DESC").
+	query := db.Table("notification n").
+		Select(`
+			n.notification_id,
+			n.user_id,
+			TRIM(CONCAT_WS(' ',
+				NULLIF(up.first_name, ''),
+				NULLIF(up.middle_name, ''),
+				NULLIF(up.last_name, ''),
+				NULLIF(up.suffix_extension, '')
+			)) AS name,
+			ur.role_code AS role,
+			up.institutional_id,
+			n.type,
+			n.channel,
+			n.subject,
+			n.message,
+			n.is_read,
+			n.created_at,
+			n.reference_type,
+			n.reference_id
+		`).
+		Joins(`JOIN "user" u ON u.user_id = n.user_id`).
+		Joins(`LEFT JOIN user_profile up ON up.user_id = u.user_id`).
+		Joins(`LEFT JOIN user_role ur ON ur.role_id = u.role_id`).
+		Where("n.user_id = ? AND n.channel = ?", userID, NotificationChannelInApp)
+
+	if unreadOnly {
+		query = query.Where("n.is_read = FALSE")
+	}
+
+	err := query.
+		Order("n.created_at DESC, n.notification_id DESC").
 		Limit(limit).
 		Offset(offset).
-		Find(&notifications).Error
-
+		Scan(&notifications).Error
 	if err != nil {
 		return nil, err
 	}
