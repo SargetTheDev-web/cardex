@@ -232,8 +232,8 @@ func GetReservationQueue(db *gorm.DB) ([]ReservationQueueItem, error) {
     b.title AS book_title,
     r.user_id,
     u.role_id AS role_id,
-ur.role_name AS role,
-up.institutional_id AS institutional_id,
+	ur.role_name AS role,
+	up.institutional_id AS institutional_id,
     TRIM(CONCAT_WS(' ',
         NULLIF(TRIM(up.first_name), ''),
         NULLIF(TRIM(up.middle_name), ''),
@@ -251,6 +251,7 @@ up.institutional_id AS institutional_id,
 FROM reservation r
 JOIN book b ON b.book_id = r.book_id
 JOIN "user" u ON u.user_id = r.user_id
+JOIN user_role ur ON ur.role_id = u.role_id
 LEFT JOIN user_profile up ON up.user_id = r.user_id
 WHERE r.status IN ('PENDING', 'NOTIFIED')
 ORDER BY r.reservation_date ASC, r.reservation_id ASC
