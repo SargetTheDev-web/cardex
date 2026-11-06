@@ -26,7 +26,7 @@ type NotificationResponse struct {
 	NotificationID  int64     `json:"notification_id"`
 	UserID          int       `json:"user_id"`
 	Name            string    `json:"name"`
-	Role            string    `json:"role"`
+	RoleCode        string    `json:"role_code"`
 	InstitutionalID *string   `json:"institutional_id,omitempty"`
 	Type            string    `json:"type"`
 	Channel         string    `json:"channel"`

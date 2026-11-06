@@ -255,3 +255,29 @@ func DeleteNotificationHandler(db *gorm.DB) gin.HandlerFunc {
 		})
 	}
 }
+
+func GetAllNotificationsHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		limit, offset, ok := notificationPagination(c)
+		if !ok {
+			return
+		}
+
+		svc := service.NewNotificationService(db, nil)
+		notifications, err := svc.GetAllNotifications(limit, offset)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status": http.StatusInternalServerError,
+				"error":  "failed to retrieve all notifications",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":        http.StatusOK,
+			"notifications": notifications,
+			"limit":         limit,
+			"offset":        offset,
+		})
+	}
+}

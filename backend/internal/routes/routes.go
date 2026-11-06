@@ -395,6 +395,8 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.GetInventoryReportHandler(db),
 	)
 
+	librarian.GET("/notifications", handler.GetAllNotificationsHandler(db))
+
 	notifications := protected.Group("/notifications")
 	{
 		notifications.GET("", handler.GetNotificationsHandler(db))

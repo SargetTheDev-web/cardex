@@ -163,7 +163,7 @@ func getNotificationResponses(
 				NULLIF(up.last_name, ''),
 				NULLIF(up.suffix_extension, '')
 			)) AS name,
-			ur.role_code AS role,
+			ur.role_code AS role_code,
 			up.institutional_id,
 			n.type,
 			n.channel,
@@ -188,6 +188,57 @@ func getNotificationResponses(
 		Limit(limit).
 		Offset(offset).
 		Scan(&notifications).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return notifications, nil
+}
+
+// GetAllNotifications returns all notifications across all users.
+func GetAllNotifications(
+	db *gorm.DB,
+	limit int,
+	offset int,
+) ([]model.NotificationResponse, error) {
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	notifications := make([]model.NotificationResponse, 0)
+
+	err := db.Table("notification n").
+		Select(`
+			n.notification_id,
+			n.user_id,
+			TRIM(CONCAT_WS(' ',
+				NULLIF(up.first_name, ''),
+				NULLIF(up.middle_name, ''),
+				NULLIF(up.last_name, ''),
+				NULLIF(up.suffix_extension, '')
+			)) AS name,
+			ur.role_code AS role_code,
+			up.institutional_id,
+			n.type,
+			n.channel,
+			n.subject,
+			n.message,
+			n.is_read,
+			n.created_at,
+			n.reference_type,
+			n.reference_id
+		`).
+		Joins(`JOIN "user" u ON u.user_id = n.user_id`).
+		Joins(`LEFT JOIN user_profile up ON up.user_id = u.user_id`).
+		Joins(`LEFT JOIN user_role ur ON ur.role_id = u.role_id`).
+		Order("n.created_at DESC, n.notification_id DESC").
+		Limit(limit).
+		Offset(offset).
+		Scan(&notifications).Error
+
 	if err != nil {
 		return nil, err
 	}

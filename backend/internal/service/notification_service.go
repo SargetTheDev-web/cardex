@@ -224,3 +224,10 @@ func (s *NotificationService) Delete(
 		notificationID,
 	)
 }
+
+func (s *NotificationService) GetAllNotifications(
+	limit int,
+	offset int,
+) ([]model.NotificationResponse, error) {
+	return repository.GetAllNotifications(s.db, limit, offset)
+}
