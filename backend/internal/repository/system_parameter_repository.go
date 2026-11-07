@@ -3,6 +3,8 @@
 package repository
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 )
 
@@ -88,4 +90,42 @@ func GetAllSystemParameters(
 	}
 
 	return params, nil
+}
+
+func UpdateSystemParameter(
+	db *gorm.DB,
+	key string,
+	value string,
+) error {
+	result := db.
+		Table("system_parameter").
+		Where("parameter_key = ?", key).
+		Update("parameter_value", value)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		var count int64
+
+		err := db.
+			Table("system_parameter").
+			Where("parameter_key = ?", key).
+			Count(&count).Error
+
+		if err != nil {
+			return err
+		}
+
+		if count == 0 {
+			return gorm.ErrRecordNotFound
+		}
+	}
+
+	return nil
+}
+
+func IsSystemParameterNotFound(err error) bool {
+	return errors.Is(err, gorm.ErrRecordNotFound)
 }
