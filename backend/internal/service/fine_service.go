@@ -32,7 +32,7 @@ func GetFines(
 	db *gorm.DB,
 	status string,
 	loanID int64,
-) ([]model.Fine, error) {
+) ([]model.FineResponse, error) {
 	status = strings.ToUpper(strings.TrimSpace(status))
 
 	if status != "" && !validFineStatus(status) {

@@ -17,19 +17,45 @@ func GetFines(
 	db *gorm.DB,
 	status string,
 	loanID int64,
-) ([]model.Fine, error) {
-	fines := make([]model.Fine, 0)
+) ([]model.FineResponse, error) {
+	fines := make([]model.FineResponse, 0)
 
-	query := db.Model(&model.Fine{})
+	query := db.Table("fine f").
+		Select(`
+			f.fine_id,
+			f.loan_id,
+			l.user_id,
+			TRIM(CONCAT_WS(' ',
+				NULLIF(up.first_name, ''),
+				NULLIF(up.middle_name, ''),
+				NULLIF(up.last_name, ''),
+				NULLIF(up.suffix_extension, '')
+			)) AS name,
+			ur.role_code AS role_code,
+			up.institutional_id,
+			f.amount,
+			f.reason,
+			f.status,
+			f.paid_at,
+			f.created_at
+		`).
+		Joins("JOIN loan l ON l.loan_id = f.loan_id").
+		Joins(`JOIN "user" u ON u.user_id = l.user_id`).
+		Joins("LEFT JOIN user_profile up ON up.user_id = u.user_id").
+		Joins("LEFT JOIN user_role ur ON ur.role_id = u.role_id")
 
 	if status != "" {
-		query = query.Where("status = ?", status)
-	}
-	if loanID > 0 {
-		query = query.Where("loan_id = ?", loanID)
+		query = query.Where("f.status = ?", status)
 	}
 
-	err := query.Order("created_at DESC, fine_id DESC").Find(&fines).Error
+	if loanID > 0 {
+		query = query.Where("f.loan_id = ?", loanID)
+	}
+
+	err := query.
+		Order("f.created_at DESC, f.fine_id DESC").
+		Scan(&fines).Error
+
 	return fines, err
 }
 

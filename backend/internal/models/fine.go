@@ -17,3 +17,17 @@ type Fine struct {
 func (Fine) TableName() string {
 	return "fine"
 }
+
+type FineResponse struct {
+	FineID          int64      `json:"fine_id"`
+	LoanID          int64      `json:"loan_id"`
+	UserID          int        `json:"user_id"`
+	Name            string     `json:"name"`
+	RoleCode        string     `json:"role_code"`
+	InstitutionalID *string    `json:"institutional_id,omitempty"`
+	Amount          float64    `json:"amount"`
+	Reason          string     `json:"reason"`
+	Status          string     `json:"status"`
+	PaidAt          *time.Time `json:"paid_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+}
