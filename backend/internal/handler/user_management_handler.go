@@ -30,6 +30,7 @@ type CreateUserRequest struct {
 type UpdateUserRequest struct {
 	Username        *string `json:"username"`
 	EmailAddress    *string `json:"email_address"`
+	RoleID          *int    `json:"role_id"`
 	InstitutionalID *string `json:"institutional_id"`
 	LastName        *string `json:"last_name"`
 	FirstName       *string `json:"first_name"`
@@ -174,6 +175,7 @@ func UpdateUserHandler(db *gorm.DB) gin.HandlerFunc {
 			service.UpdateUserInput{
 				Username:        req.Username,
 				EmailAddress:    req.EmailAddress,
+				RoleID:          req.RoleID,
 				InstitutionalID: req.InstitutionalID,
 				LastName:        req.LastName,
 				FirstName:       req.FirstName,

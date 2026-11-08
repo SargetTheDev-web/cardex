@@ -32,6 +32,7 @@ type CreateUserInput struct {
 type UpdateUserInput struct {
 	Username        *string
 	EmailAddress    *string
+	RoleID          *int
 	InstitutionalID *string
 	LastName        *string
 	FirstName       *string
@@ -318,6 +319,27 @@ func UpdateUser(
 			}
 
 			accountUpdates["email_address"] = email
+		}
+
+		if input.RoleID != nil {
+			if *input.RoleID <= 0 {
+				return errors.New("invalid role ID")
+			}
+
+			role, err := repository.GetUserRoleByID(tx, *input.RoleID)
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return errors.New("role not found")
+				}
+
+				return err
+			}
+
+			if !role.IsActive {
+				return errors.New("selected role is inactive")
+			}
+
+			accountUpdates["role_id"] = *input.RoleID
 		}
 
 		if input.InstitutionalID != nil {
