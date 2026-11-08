@@ -26,10 +26,8 @@ func ChangePassword(
 	newPassword = strings.TrimSpace(newPassword)
 	confirmPassword = strings.TrimSpace(confirmPassword)
 
-	if currentPassword == "" ||
-		newPassword == "" ||
-		confirmPassword == "" {
-		return errors.New("all password fields are required")
+	if newPassword == "" || confirmPassword == "" {
+		return errors.New("new password and confirmation are required")
 	}
 
 	if newPassword != confirmPassword {
@@ -38,10 +36,6 @@ func ChangePassword(
 
 	if len(newPassword) < 8 {
 		return errors.New("new password must be at least 8 characters")
-	}
-
-	if currentPassword == newPassword {
-		return errors.New("new password must be different from current password")
 	}
 
 	user, err := repository.GetUserByID(db, userID)
@@ -53,22 +47,39 @@ func ChangePassword(
 		return err
 	}
 
-	if user.PasswordHash == "" {
-		return errors.New("password change is unavailable for this account")
+	// An SSO-only account has no local password but has both
+	// SSO provider identifiers.
+	ssoOnlyAccount :=
+		user.PasswordHash == "" &&
+			user.SSOProvider != nil &&
+			strings.TrimSpace(*user.SSOProvider) != "" &&
+			user.SSOProviderID != nil &&
+			strings.TrimSpace(*user.SSOProviderID) != ""
+
+	// Accounts with local passwords must verify their current password.
+	if !ssoOnlyAccount {
+		if user.PasswordHash == "" {
+			return errors.New("password change is unavailable for this account")
+		}
+
+		if currentPassword == "" {
+			return errors.New("current password is required")
+		}
+
+		if currentPassword == newPassword {
+			return errors.New("new password must be different from current password")
+		}
+
+		if err := bcrypt.CompareHashAndPassword(
+			[]byte(user.PasswordHash),
+			[]byte(currentPassword),
+		); err != nil {
+			return errors.New("current password is incorrect")
+		}
 	}
 
-	if err := bcrypt.CompareHashAndPassword(
-		[]byte(user.PasswordHash),
-		[]byte(currentPassword),
-	); err != nil {
-		return errors.New("current password is incorrect")
-	}
-
-	history, err := repository.GetRecentPasswordHistory(
-		db,
-		userID,
-		5,
-	)
+	// Check recent password history for both account types.
+	history, err := repository.GetRecentPasswordHistory(db, userID, 5)
 	if err != nil {
 		return err
 	}
@@ -82,12 +93,15 @@ func ChangePassword(
 		}
 	}
 
-	if err := repository.CreatePasswordHistory(
-		db,
-		userID,
-		user.PasswordHash,
-	); err != nil {
-		return err
+	// Only save the previous password if one actually exists.
+	if user.PasswordHash != "" {
+		if err := repository.CreatePasswordHistory(
+			db,
+			userID,
+			user.PasswordHash,
+		); err != nil {
+			return err
+		}
 	}
 
 	newPasswordHash, err := bcrypt.GenerateFromPassword(

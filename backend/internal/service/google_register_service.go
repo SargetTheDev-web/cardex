@@ -74,7 +74,7 @@ func CompleteGoogleRegistration(
 		requestedRoleID = RoleFaculty
 		input.Course = ""
 	default:
-		return errors.New("role must be STUDENT or FACULTY")
+		return errors.New("Role must be student or faculty")
 	}
 
 	if len(input.PIN) != 6 {
@@ -151,7 +151,7 @@ func CompleteGoogleRegistration(
 		// Never auto-link an existing account based on email.
 		_, err = repository.GetUserByIdentifier(tx, email)
 		if err == nil {
-			return errors.New("email already belongs to a CARDex account; account linking is required")
+			return errors.New("Email already belongs to a CARDex account; account linking is required")
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("failed to check email")
@@ -159,7 +159,7 @@ func CompleteGoogleRegistration(
 
 		_, err = repository.GetUserByIdentifier(tx, input.Username)
 		if err == nil {
-			return errors.New("username already in use")
+			return errors.New("Email address already exist")
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("failed to check username")

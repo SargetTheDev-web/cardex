@@ -290,7 +290,7 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	admin := protected.Group("/")
 	admin.Use(middleware.RequireAdmin(db))
 
-	admin.GET(
+	router.GET(
 		"/system-parameters/:key",
 		handler.GetSystemParameterHandler(db),
 	)

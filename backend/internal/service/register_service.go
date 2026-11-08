@@ -77,7 +77,7 @@ func RequestRegistration(
 	fmt.Println("Lookup error:", err)
 
 	if err == nil && existingUser != nil {
-		return errors.New("email already in use")
+		return errors.New("Email address already exist")
 	}
 
 	if err != nil &&
@@ -101,7 +101,7 @@ func RequestRegistration(
 			time.Now().Before(existing.ExpiresAt) {
 
 			return errors.New(
-				"verification already sent. check your email",
+				"A verification code has already been sent. Please check your email",
 			)
 		}
 
@@ -188,7 +188,7 @@ func VerifyRegistrationCode(
 	}
 
 	if verification.IsVerified {
-		return errors.New("email already verified")
+		return errors.New("Your email has been verified! Please complete your registration")
 	}
 
 	if time.Now().After(verification.ExpiresAt) {
@@ -334,7 +334,7 @@ func CompleteRegistration(
 	default:
 
 		return errors.New(
-			"role must be STUDENT or FACULTY",
+			"Role must be student or faculty",
 		)
 	}
 
@@ -435,7 +435,7 @@ func CompleteRegistration(
 
 		if err == nil && existingEmail != nil {
 			return errors.New(
-				"email already in use",
+				"Email address already exist",
 			)
 		}
 
