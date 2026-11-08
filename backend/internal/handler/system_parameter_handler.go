@@ -93,20 +93,8 @@ func GetSystemParameterHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		userID, err := getSystemParameterActor(c)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  http.StatusInternalServerError,
-				"message": "Unable to identify authenticated administrator",
-			})
-			return
-		}
-
 		value, err := svc.Get(
 			key,
-			userID,
-			c.ClientIP(),
-			c.Request.UserAgent(),
 		)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
