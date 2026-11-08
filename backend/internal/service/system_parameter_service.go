@@ -103,37 +103,8 @@ func (s *SystemParameterService) GetAll(
 	return params, nil
 }
 
-func (s *SystemParameterService) Get(
-	key string,
-	userID *int,
-	ip string,
-	userAgent string,
-) (string, error) {
-	var value string
-
-	err := s.db.Transaction(func(tx *gorm.DB) error {
-		var err error
-
-		value, err = repository.GetSystemParameter(tx, key)
-		if err != nil {
-			return err
-		}
-
-		return s.writeAudit(
-			tx,
-			userID,
-			AuditActionView,
-			"Retrieved system parameter: "+key,
-			ip,
-			userAgent,
-		)
-	})
-
-	if err != nil {
-		return "", err
-	}
-
-	return value, nil
+func (s *SystemParameterService) Get(key string) (string, error) {
+	return repository.GetSystemParameter(s.db, key)
 }
 
 func (s *SystemParameterService) Update(
