@@ -512,4 +512,21 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 			handler.DeleteNotificationHandler(db),
 		)
 	}
+
+	rbac := protected.Group("/rbac")
+	{
+		rbac.GET(
+			"/matrix",
+			middleware.RequirePermission(db, "RBAC_VIEW"),
+			handler.GetRBACMatrixHandler(db),
+		)
+
+		rbac.PUT(
+			"/matrix",
+			middleware.RequirePermission(db, "RBAC_VIEW"),
+			middleware.RequirePermission(db, "RBAC_PERMISSION_ASSIGN"),
+			middleware.RequirePermission(db, "RBAC_PERMISSION_REVOKE"),
+			handler.UpdateRBACMatrixHandler(db),
+		)
+	}
 }

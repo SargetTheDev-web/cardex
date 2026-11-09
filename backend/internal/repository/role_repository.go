@@ -4,6 +4,7 @@ package repository
 
 import (
 	model "backend/internal/models"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -87,4 +88,147 @@ func UserHasPermission(
 	}
 
 	return allowed, nil
+}
+
+type RolePermissionAssignment struct {
+	RoleID       int `gorm:"column:role_id" json:"role_id"`
+	PermissionID int `gorm:"column:permission_id" json:"permission_id"`
+}
+
+func GetAllRoles(db *gorm.DB) ([]model.UserRole, error) {
+	var roles []model.UserRole
+
+	err := db.
+		Order("role_id ASC").
+		Find(&roles).Error
+
+	return roles, err
+}
+
+func GetAllPermissions(db *gorm.DB) ([]model.Permission, error) {
+	var permissions []model.Permission
+
+	err := db.
+		Order("permission_id ASC").
+		Find(&permissions).Error
+
+	return permissions, err
+}
+
+func GetRolePermissionMatrix(
+	db *gorm.DB,
+) ([]RolePermissionAssignment, error) {
+	var assignments []RolePermissionAssignment
+
+	err := db.
+		Table("role_permission").
+		Select("role_id, permission_id").
+		Order("role_id ASC, permission_id ASC").
+		Scan(&assignments).Error
+
+	return assignments, err
+}
+
+func UpdateRolePermissionMatrix(
+	tx *gorm.DB,
+	roles []model.UserRole,
+	desired map[int]map[int]struct{},
+	actorID int,
+) error {
+	for _, role := range roles {
+		roleID := role.RoleID
+		desiredPermissions := desired[roleID]
+
+		var existing []model.RolePermission
+
+		if err := tx.
+			Clauses().
+			Where("role_id = ?", roleID).
+			Find(&existing).Error; err != nil {
+			return err
+		}
+
+		existingSet := make(map[int]model.RolePermission, len(existing))
+
+		for _, assignment := range existing {
+			existingSet[assignment.PermissionID] = assignment
+		}
+
+		// Revoke permissions no longer selected.
+		for permissionID, assignment := range existingSet {
+			if _, keep := desiredPermissions[permissionID]; keep {
+				continue
+			}
+
+			if err := tx.
+				Where(
+					"role_id = ? AND permission_id = ?",
+					roleID,
+					permissionID,
+				).
+				Delete(&model.RolePermission{}).Error; err != nil {
+				return err
+			}
+
+			_ = assignment
+		}
+
+		// Assign newly selected permissions.
+		for permissionID := range desiredPermissions {
+			if _, exists := existingSet[permissionID]; exists {
+				continue
+			}
+
+			assignment := model.RolePermission{
+				RoleID:       roleID,
+				PermissionID: permissionID,
+				CreatedBy:    &actorID,
+				UpdatedBy:    &actorID,
+			}
+
+			if err := tx.Create(&assignment).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func ValidateRolePermissionIDs(
+	tx *gorm.DB,
+	roleIDs []int,
+	permissionIDs []int,
+) error {
+	var roleCount int64
+
+	if err := tx.
+		Table("user_role").
+		Where("role_id IN ?", roleIDs).
+		Count(&roleCount).Error; err != nil {
+		return err
+	}
+
+	if roleCount != int64(len(roleIDs)) {
+		return fmt.Errorf("one or more role IDs do not exist")
+	}
+
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+
+	var permissionCount int64
+
+	if err := tx.
+		Table("permission").
+		Where("permission_id IN ?", permissionIDs).
+		Count(&permissionCount).Error; err != nil {
+		return err
+	}
+
+	if permissionCount != int64(len(permissionIDs)) {
+		return fmt.Errorf("one or more permission IDs do not exist")
+	}
+
+	return nil
 }
