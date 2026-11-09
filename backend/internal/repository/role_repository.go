@@ -1,3 +1,5 @@
+// internal/repository/role_repository.go
+
 package repository
 
 import (
@@ -53,4 +55,36 @@ func GetRolePermissions(
 	}
 
 	return permissions, nil
+}
+
+// UserHasPermission checks whether the user's current active role
+// has the specified permission.
+func UserHasPermission(
+	db *gorm.DB,
+	userID int,
+	permissionCode string,
+) (bool, error) {
+	var allowed bool
+
+	err := db.Raw(`
+		SELECT EXISTS (
+			SELECT 1
+			FROM "user" u
+			JOIN user_role ur
+				ON ur.role_id = u.role_id
+			JOIN role_permission rp
+				ON rp.role_id = ur.role_id
+			JOIN permission p
+				ON p.permission_id = rp.permission_id
+			WHERE u.user_id = ?
+				AND ur.is_active = TRUE
+				AND p.permission_code = ?
+		)
+	`, userID, permissionCode).Scan(&allowed).Error
+
+	if err != nil {
+		return false, err
+	}
+
+	return allowed, nil
 }
