@@ -40,28 +40,6 @@ func RequestRegistration(
 		return errors.New("email is required")
 	}
 
-	/*
-		RECAPTCHA CHECK (DISABLED FOR POSTMAN)
-
-		isHuman := VerifyRecaptcha(token)
-
-		err := repository.InsertRecaptchaLog(
-			db,
-			email,
-			token,
-			isHuman,
-			ip,
-		)
-
-		if err != nil {
-			return err
-		}
-
-		if !isHuman {
-			return errors.New("captcha verification failed")
-		}
-	*/
-
 	// --------------------------------------------------
 	// Check if email is already registered
 	// --------------------------------------------------
@@ -266,6 +244,11 @@ func CompleteRegistration(
 		return errors.New("email is required")
 	}
 
+	if strings.EqualFold(strings.TrimSpace(email), "@cmdi.edu.ph") ||
+		strings.HasSuffix(strings.ToLower(strings.TrimSpace(email)), "@cmdi.edu.ph") {
+		return errors.New("Institutional @cmdi.edu.ph accounts must use 'Sign up with Google' for SSO access.")
+	}
+
 	if username == "" {
 		return errors.New("username is required")
 	}
@@ -290,7 +273,7 @@ func CompleteRegistration(
 
 	if institutionalID == "" {
 		return errors.New(
-			"institutional ID is required",
+			"Student/Faculty ID is required",
 		)
 	}
 
@@ -484,7 +467,7 @@ func CompleteRegistration(
 
 		if exists {
 			return errors.New(
-				"institutional ID already exists",
+				"Student/Faculty ID already exists",
 			)
 		}
 

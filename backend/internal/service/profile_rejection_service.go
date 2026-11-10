@@ -106,7 +106,7 @@ func RejectProfileChange(
 			RecipientName:  user.Username,
 			Subject:        "CARDex Profile Change Rejected",
 			Heading:        "Profile Change Rejected",
-			Message:        "Your profile change request was rejected. Reason: " + reason,
+			Message:        "We regret to inform you that we are unable to approve your registration at this time. Please log in to the student portal to update your details, or visit the library desk for assistance. Your profile change request was rejected. Reason: " + reason,
 			Details:        details,
 			Status:         "PENDING",
 		}

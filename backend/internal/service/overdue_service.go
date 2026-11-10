@@ -128,7 +128,7 @@ func (s *NotificationService) ProcessOverdueLoans() error {
 				RecipientName:  loan.Name,
 				Subject:        "CARDex Overdue Book Notice",
 				Heading:        "Overdue Book Notice",
-				Message:        "One of your borrowed books is overdue. Please return it as soon as possible.",
+				Message:        "This is a formal reminder from CARDex regarding your borrowed item. Please return or renew your book on or before the due date to ensure uninterrupted library privileges. You may renew your item online through the student portal or at the library circulation desk.",
 				Details:        details,
 				Status:         "PENDING",
 			}

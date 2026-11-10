@@ -105,11 +105,17 @@ func SendNotificationEmail(to string, data NotificationEmailData) error {
                         </h2>
 
                         {{if .RecipientName}}
-                        <p style="margin: 0 0 18px 0;">Hello {{.RecipientName}},</p>
+                        <p style="margin: 0 0 18px 0;">Good day {{.RecipientName}},</p>
                         {{end}}
 
                         <p style="margin: 0 0 22px 0; white-space: pre-line;">{{.Message}}</p>
 
+						<p style="margin: 0 0 22px 0; white-space: pre-line;">{{.Message}}</p>
+
+						<p style="margin: 0 0 22px 0; color: #333333;">
+    						Best regards,<br>
+    						<strong>CARDex Smart Library</strong>
+						</p>
                         {{if .Details}}
                         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
                                style="background-color: #f8f9ff; border: 1px solid #dedcff; border-radius: 8px;">
@@ -164,9 +170,11 @@ func SendNotificationEmail(to string, data NotificationEmailData) error {
 
 	plainText := data.Heading + "\r\n\r\n"
 	if data.RecipientName != "" {
-		plainText += "Hello " + data.RecipientName + ",\r\n\r\n"
+		plainText += "Good day " + data.RecipientName + ",\r\n\r\n"
 	}
 	plainText += data.Message + "\r\n\r\n"
+	plainText += "Best regards,\r\n"
+	plainText += "CARDex Library Admin\r\n\r\n"
 
 	for _, detail := range data.Details {
 		plainText += detail.Label + ": " + detail.Value + "\r\n"

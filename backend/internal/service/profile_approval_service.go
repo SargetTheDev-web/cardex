@@ -346,7 +346,7 @@ func ApproveProfileChange(
 			RecipientName:  user.Username,
 			Subject:        "CARDex Profile Change Approved",
 			Heading:        "Profile Change Approved",
-			Message:        "Your profile change request has been approved.",
+			Message:        "We are pleased to inform you that your profile request for CARDex has been approved. You may now borrow books and access our full library catalog. You can log in to the student portal or visit the library counter to get started.",
 			Details:        details,
 			Status:         "PENDING",
 		}

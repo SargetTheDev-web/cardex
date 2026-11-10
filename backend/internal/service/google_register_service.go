@@ -57,7 +57,7 @@ func CompleteGoogleRegistration(
 		return errors.New("username is required")
 	}
 	if input.InstitutionalID == "" {
-		return errors.New("institutional ID is required")
+		return errors.New("Student/Faculty ID is required")
 	}
 	if input.FirstName == "" || input.LastName == "" {
 		return errors.New("first name and last name are required")
@@ -142,7 +142,7 @@ func CompleteGoogleRegistration(
 		// Prevent duplicate registration for an already linked identity.
 		_, err := repository.GetUserBySSO(tx, provider, providerID)
 		if err == nil {
-			return errors.New("this Google account is already registered")
+			return errors.New("This Google account is already registered")
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("failed to check Google account")
@@ -171,10 +171,10 @@ func CompleteGoogleRegistration(
 			0,
 		)
 		if err != nil {
-			return errors.New("failed to validate institutional ID")
+			return errors.New("Failed to validate institutional ID")
 		}
 		if exists {
-			return errors.New("institutional ID already exists")
+			return errors.New("Student/Faculty ID already exists")
 		}
 
 		expirationDate := time.Now().AddDate(1, 0, 0)
