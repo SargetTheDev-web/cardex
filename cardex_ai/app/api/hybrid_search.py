@@ -9,6 +9,7 @@ from app.services.embedding_service import EmbeddingService
 from app.services.hybrid_search_service import (
     HybridSearchService,
 )
+from app.core.ai import recommendation_service
 
 
 router = APIRouter(

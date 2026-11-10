@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     embedding_model: str = (
         "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     )
+    
+    internal_api_key: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
