@@ -438,7 +438,6 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	)
 
 	circulation.GET("/fines",
-		require(""),
 		handler.GetFinesHandler(db),
 	)
 
