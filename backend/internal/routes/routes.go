@@ -173,6 +173,11 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.CancelMyReservationHandler(db),
 	)
 
+	protected.GET(
+		"/portal",
+		handler.GetPortalHandler(db),
+	)
+
 	// Librarian
 	librarian := protected.Group("/")
 	// librarian.Use(middleware.RequireLibrarianOrAdmin(db))
