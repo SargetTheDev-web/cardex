@@ -1,0 +1,20 @@
+[33mcommit 5fb52abe0f5752fed7e38e5c3ee48bc3cdbc2373[m
+Author: Karl Emanuel Carandang <karlcarandang5@gmail.com>
+Date:   Thu Oct 22 01:29:52 2026 +0800
+
+    Added SSO endpoint and check email endpoint
+
+ backend/go.mod                                     |  31 [32m++[m[31m-[m
+ backend/go.sum                                     |  87 [32m+++++[m[31m--[m
+ backend/internal/handler/check_email_handler.go    |  67 [32m++++++[m
+ backend/internal/handler/google_auth_handler.go    |  85 [32m+++++++[m
+ .../internal/handler/google_register_handler.go    | 104 [32m+++++++++[m
+ backend/internal/models/profile_change_request.go  |   1 [32m+[m
+ backend/internal/models/user_profile.go            |   5 [32m+[m[31m-[m
+ backend/internal/repository/profile_repository.go  |   1 [32m+[m
+ backend/internal/repository/user_repository.go     |  23 [32m++[m
+ backend/internal/routes/routes.go                  |   3 [32m+[m
+ backend/internal/service/google_auth_service.go    | 254 [32m+++++++++++++++++++++[m
+ .../internal/service/google_register_service.go    | 233 [32m+++++++++++++++++++[m
+ .../internal/service/profile_approval_service.go   |   5 [32m+[m
+ 13 files changed, 877 insertions(+), 22 deletions(-)
