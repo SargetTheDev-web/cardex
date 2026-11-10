@@ -54,6 +54,11 @@ func RequestRegistration(
 	fmt.Println("Existing user:", existingUser)
 	fmt.Println("Lookup error:", err)
 
+	if strings.EqualFold(strings.TrimSpace(email), "@cmdi.edu.ph") ||
+		strings.HasSuffix(strings.ToLower(strings.TrimSpace(email)), "@cmdi.edu.ph") {
+		return errors.New("Institutional @cmdi.edu.ph accounts must use 'Sign up with Google' for SSO access.")
+	}
+
 	if err == nil && existingUser != nil {
 		return errors.New("Email address already exist")
 	}
