@@ -5,7 +5,6 @@ from app.schemas.search import (
     SearchAnalyzeResponse,
 )
 from app.services.intent_service import IntentService
-from app.core.ai import embedding_service
 
 router = APIRouter(
     prefix="/api/v1/search",
