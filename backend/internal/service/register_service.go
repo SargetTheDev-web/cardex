@@ -175,7 +175,7 @@ func VerifyRegistrationCode(
 	}
 
 	if time.Now().After(verification.ExpiresAt) {
-		return errors.New("verification code expired")
+		return errors.New("Your verification code has expired. Please request a new one.")
 	}
 
 	if verification.VerificationCode != code {

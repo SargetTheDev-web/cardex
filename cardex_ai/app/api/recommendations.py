@@ -4,7 +4,9 @@ import secrets
 from fastapi import APIRouter, Header, HTTPException, status
 
 from app.core.config import get_settings
-
+from app.schemas.recommendation import (
+    RecommendationResponse,
+)
 from app.services.embedding_service import EmbeddingService
 from app.services.recommendation_service import (
     RecommendationService,

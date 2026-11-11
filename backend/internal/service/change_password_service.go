@@ -67,7 +67,7 @@ func ChangePassword(
 		}
 
 		if currentPassword == newPassword {
-			return errors.New("new password must be different from current password")
+			return errors.New("Password reuse is not allowed. Please choose a different password.")
 		}
 
 		if err := bcrypt.CompareHashAndPassword(

@@ -28,7 +28,7 @@ func ResetPassword(
 	confirmPassword = strings.TrimSpace(confirmPassword)
 
 	if tokenString == "" {
-		return errors.New("invalid or expired reset token")
+		return errors.New("invalid or the reset link is invalid or has expired. Please request a new one.")
 	}
 
 	if password == "" || confirmPassword == "" {
@@ -70,7 +70,7 @@ func ResetPassword(
 	)
 
 	if err != nil || !token.Valid {
-		return errors.New("invalid or expired reset token")
+		return errors.New("Password reset failed. The reset link is invalid or has expired. Please request a new one.")
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
@@ -157,7 +157,7 @@ func ResetPassword(
 		password,
 	) == nil {
 		return errors.New(
-			"new password cannot be your current password",
+			"New password cannot be your current password",
 		)
 	}
 
@@ -171,7 +171,7 @@ func ResetPassword(
 			password,
 		) == nil {
 			return errors.New(
-				"password was already used before",
+				"Password reuse is not allowed. Please choose a different password.",
 			)
 		}
 	}

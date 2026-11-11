@@ -89,8 +89,3 @@ class MockDocumentRepository:
         """
 
         return self.documents
-    
-    """
-    This is non working only for testing purpose
-    """
-    

@@ -4,13 +4,16 @@ from app.schemas.search import (
     SearchAnalyzeRequest,
     SearchAnalyzeResponse,
 )
+from app.services.embedding_service import EmbeddingService
 from app.services.intent_service import IntentService
+
 
 router = APIRouter(
     prefix="/api/v1/search",
     tags=["Search AI"],
 )
 
+embedding_service = EmbeddingService()
 intent_service = IntentService()
 
 
