@@ -4,7 +4,6 @@ import numpy as np
 from sentence_transformers import util
 
 from app.schemas.recommendation import (
-    BookMetadata,
     RecommendationItem,
 )
 
