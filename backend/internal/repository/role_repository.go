@@ -200,33 +200,61 @@ func ValidateRolePermissionIDs(
 	roleIDs []int,
 	permissionIDs []int,
 ) error {
-	var roleCount int64
-
-	if err := tx.
-		Table("user_role").
-		Where("role_id IN ?", roleIDs).
-		Count(&roleCount).Error; err != nil {
-		return err
+	uniqueRoleIDs := make(map[int]struct{}, len(roleIDs))
+	for _, id := range roleIDs {
+		if id <= 0 {
+			return fmt.Errorf("invalid role ID")
+		}
+		uniqueRoleIDs[id] = struct{}{}
 	}
 
-	if roleCount != int64(len(roleIDs)) {
+	uniquePermissionIDs := make(map[int]struct{}, len(permissionIDs))
+	for _, id := range permissionIDs {
+		if id <= 0 {
+			return fmt.Errorf("invalid permission ID")
+		}
+		uniquePermissionIDs[id] = struct{}{}
+	}
+
+	if len(uniqueRoleIDs) != len(roleIDs) {
+		return fmt.Errorf("duplicate role IDs are not allowed")
+	}
+
+	roleIDList := make([]int, 0, len(uniqueRoleIDs))
+	for id := range uniqueRoleIDs {
+		roleIDList = append(roleIDList, id)
+	}
+
+	var roleCount int64
+	if len(roleIDList) > 0 {
+		if err := tx.
+			Table("user_role").
+			Where("role_id IN ?", roleIDList).
+			Count(&roleCount).Error; err != nil {
+			return err
+		}
+	}
+
+	if roleCount != int64(len(roleIDList)) {
 		return fmt.Errorf("one or more role IDs do not exist")
 	}
 
-	if len(permissionIDs) == 0 {
-		return nil
+	permissionIDList := make([]int, 0, len(uniquePermissionIDs))
+	for id := range uniquePermissionIDs {
+		permissionIDList = append(permissionIDList, id)
 	}
 
 	var permissionCount int64
-
-	if err := tx.
-		Table("permission").
-		Where("permission_id IN ?", permissionIDs).
-		Count(&permissionCount).Error; err != nil {
-		return err
+	if len(permissionIDList) > 0 {
+		if err := tx.
+			Table("permission").
+			Where("permission_id IN ?", permissionIDList).
+			Count(&permissionCount).Error; err != nil {
+			return err
+		}
 	}
 
-	if permissionCount != int64(len(permissionIDs)) {
+	if permissionCount != int64(len(permissionIDList)) {
 		return fmt.Errorf("one or more permission IDs do not exist")
 	}
 
