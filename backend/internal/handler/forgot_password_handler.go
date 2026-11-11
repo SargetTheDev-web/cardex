@@ -44,7 +44,7 @@ func ForgotPasswordHandler(db *gorm.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"status":  http.StatusOK,
-			"message": "password reset link sent",
+			"message": "A password reset link has been sent to your email address.",
 		})
 	}
 }
