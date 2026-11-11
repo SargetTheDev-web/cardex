@@ -30,6 +30,14 @@ func RequestPasswordReset(
 		return errors.New("user not found")
 	}
 
+	// Reject password reset for SSO accounts.
+	if (user.SSOProviderID != nil && strings.TrimSpace(*user.SSOProviderID) != "") ||
+		(user.SSOProvider != nil && strings.TrimSpace(*user.SSOProvider) != "") {
+		return errors.New(
+			"Password reset is unavailable for accounts registered through SSO. Please sign in using your SSO provider.",
+		)
+	}
+
 	hashBytes := sha256.Sum256([]byte(user.PasswordHash))
 	passwordSignature := hex.EncodeToString(hashBytes[:])
 
