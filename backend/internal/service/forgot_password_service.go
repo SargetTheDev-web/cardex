@@ -34,7 +34,7 @@ func RequestPasswordReset(
 	if (user.SSOProviderID != nil && strings.TrimSpace(*user.SSOProviderID) != "") ||
 		(user.SSOProvider != nil && strings.TrimSpace(*user.SSOProvider) != "") {
 		return errors.New(
-			"Password reset is unavailable for accounts registered through SSO. Please sign in using your SSO provider.",
+			"This email address is registered through Single Sign-On (SSO). Please use your original sign-in method to access your account.",
 		)
 	}
 
