@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func GetUserRole(db *gorm.DB, userID int) (*model.UserRole, error) {
@@ -142,7 +143,7 @@ func UpdateRolePermissionMatrix(
 		var existing []model.RolePermission
 
 		if err := tx.
-			Clauses().
+			Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("role_id = ?", roleID).
 			Find(&existing).Error; err != nil {
 			return err
