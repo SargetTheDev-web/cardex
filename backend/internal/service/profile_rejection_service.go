@@ -97,13 +97,49 @@ func RejectProfileChange(
 			{Label: "Status", Value: "Rejected"},
 			{Label: "Reason", Value: reason},
 		})
+
+		recipientName := "Library Borrower"
+
+		profile, err := repository.GetUserProfileByUserID(
+			tx,
+			request.UserID,
+		)
+		if err == nil {
+			nameParts := []string{
+				profile.FirstName,
+				profile.LastName,
+			}
+
+			if profile.MiddleName != nil {
+				nameParts = append(nameParts, *profile.MiddleName)
+			}
+
+			if profile.SuffixExtension != nil {
+				nameParts = append(nameParts, *profile.SuffixExtension)
+			}
+
+			var nonEmptyParts []string
+
+			for _, part := range nameParts {
+				if part = strings.TrimSpace(part); part != "" {
+					nonEmptyParts = append(nonEmptyParts, part)
+				}
+			}
+
+			if len(nonEmptyParts) > 0 {
+				recipientName = strings.Join(nonEmptyParts, " ")
+			}
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("retrieve user profile: %w", err)
+		}
+
 		if err != nil {
 			return fmt.Errorf("marshal rejection email details: %w", err)
 		}
 
 		email := model.EmailOutbox{
 			RecipientEmail: user.EmailAddress,
-			RecipientName:  user.Username,
+			RecipientName:  recipientName,
 			Subject:        "CARDex Profile Change Rejected",
 			Heading:        "Profile Change Rejected",
 			Message:        "We regret to inform you that we are unable to approve your registration at this time. Please log in to the student portal to update your details, or visit the library desk for assistance. Your profile change request was rejected. Reason: " + reason,

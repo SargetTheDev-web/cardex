@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	model "backend/internal/models"
@@ -341,9 +342,50 @@ func ApproveProfileChange(
 			return fmt.Errorf("marshal approval email details: %w", err)
 		}
 
+		recipientName := "Library Borrower"
+
+		approvedProfile, err := repository.GetUserProfileByUserID(
+			tx,
+			request.UserID,
+		)
+		if err != nil {
+			return fmt.Errorf("retrieve approved user profile: %w", err)
+		}
+
+		nameParts := []string{
+			approvedProfile.FirstName,
+			approvedProfile.LastName,
+		}
+
+		if approvedProfile.MiddleName != nil {
+			nameParts = append(
+				nameParts,
+				*approvedProfile.MiddleName,
+			)
+		}
+
+		if approvedProfile.SuffixExtension != nil {
+			nameParts = append(
+				nameParts,
+				*approvedProfile.SuffixExtension,
+			)
+		}
+
+		var nonEmptyParts []string
+
+		for _, part := range nameParts {
+			if part = strings.TrimSpace(part); part != "" {
+				nonEmptyParts = append(nonEmptyParts, part)
+			}
+		}
+
+		if len(nonEmptyParts) > 0 {
+			recipientName = strings.Join(nonEmptyParts, " ")
+		}
+
 		email := model.EmailOutbox{
 			RecipientEmail: user.EmailAddress,
-			RecipientName:  user.Username,
+			RecipientName:  recipientName,
 			Subject:        "CARDex Profile Change Approved",
 			Heading:        "Profile Change Approved",
 			Message:        "We are pleased to inform you that your profile request for CARDex has been approved. You may now borrow books and access our full library catalog. You can log in to the student portal or visit the library counter to get started.",

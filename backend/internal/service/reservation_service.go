@@ -614,6 +614,43 @@ func notifyReservationDecision(
 		return errors.New("reservation owner has no email address")
 	}
 
+	recipientName := "Library Borrower"
+
+	profile, err := repository.GetUserProfileByUserID(
+		tx,
+		reservation.UserID,
+	)
+
+	if err == nil {
+		nameParts := []string{
+			profile.FirstName,
+		}
+
+		if profile.MiddleName != nil {
+			nameParts = append(nameParts, *profile.MiddleName)
+		}
+
+		nameParts = append(nameParts, profile.LastName)
+
+		if profile.SuffixExtension != nil {
+			nameParts = append(nameParts, *profile.SuffixExtension)
+		}
+
+		var nonEmptyParts []string
+
+		for _, part := range nameParts {
+			if part = strings.TrimSpace(part); part != "" {
+				nonEmptyParts = append(nonEmptyParts, part)
+			}
+		}
+
+		if len(nonEmptyParts) > 0 {
+			recipientName = strings.Join(nonEmptyParts, " ")
+		}
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("retrieve reservation owner's profile: %w", err)
+	}
+
 	subject := "Reservation Rejected"
 	message := "Your book reservation was rejected."
 	status := "Rejected"
@@ -652,7 +689,7 @@ func notifyReservationDecision(
 
 	email := model.EmailOutbox{
 		RecipientEmail: user.EmailAddress,
-		RecipientName:  user.Username,
+		RecipientName:  recipientName,
 		Subject:        "CARDex " + subject,
 		Heading:        subject,
 		Message:        message,

@@ -5,6 +5,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	model "backend/internal/models"
 	"backend/internal/repository"
@@ -14,31 +15,56 @@ import (
 )
 
 type overdueLoan struct {
-	LoanID int64  `gorm:"column:loan_id"`
-	UserID int    `gorm:"column:user_id"`
-	Email  string `gorm:"column:email_address"`
-	Name   string `gorm:"column:username"`
+	LoanID     int64  `gorm:"column:loan_id"`
+	UserID     int    `gorm:"column:user_id"`
+	Email      string `gorm:"column:email_address"`
+	FirstName  string `gorm:"column:first_name"`
+	MiddleName string `gorm:"column:middle_name"`
+	LastName   string `gorm:"column:last_name"`
+	Suffix     string `gorm:"column:suffix_extension"`
 }
 
 func (s *NotificationService) ProcessOverdueLoans() error {
 	var loans []overdueLoan
 
 	err := s.db.Raw(`
-		SELECT
-			l.loan_id,
-			l.user_id,
-			u.email_address,
-			u.username
-		FROM loan AS l
-		JOIN "user" AS u ON u.user_id = l.user_id
-		WHERE l.status = 'BORROWED'
-		  AND l.due_date < CURRENT_DATE
-	`).Scan(&loans).Error
+    SELECT
+        l.loan_id,
+        l.user_id,
+        u.email_address,
+        up.first_name,
+        up.middle_name,
+        up.last_name,
+        up.suffix_extension
+    FROM loan AS l
+    JOIN "user" AS u
+        ON u.user_id = l.user_id
+    LEFT JOIN user_profile AS up
+        ON up.user_id = u.user_id
+    WHERE l.status = 'BORROWED'
+      AND l.due_date < CURRENT_DATE
+`).Scan(&loans).Error
 	if err != nil {
 		return fmt.Errorf("find overdue loans: %w", err)
 	}
 
 	for _, loan := range loans {
+
+		recipientName := strings.TrimSpace(
+			strings.Join(
+				[]string{
+					loan.FirstName,
+					loan.MiddleName,
+					loan.LastName,
+					loan.Suffix,
+				},
+				" ",
+			),
+		)
+
+		if recipientName == "" {
+			recipientName = "Library Borrower"
+		}
 		if loan.Email == "" {
 			return fmt.Errorf("user %d has no email address", loan.UserID)
 		}
@@ -125,7 +151,7 @@ func (s *NotificationService) ProcessOverdueLoans() error {
 
 			email := model.EmailOutbox{
 				RecipientEmail: loan.Email,
-				RecipientName:  loan.Name,
+				RecipientName:  recipientName,
 				Subject:        "CARDex Overdue Book Notice",
 				Heading:        "Overdue Book Notice",
 				Message:        "This is a formal reminder from CARDex regarding your borrowed item. Please return or renew your book on or before the due date to ensure uninterrupted library privileges. You may renew your item online through the student portal or at the library circulation desk.",
