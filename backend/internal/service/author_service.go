@@ -49,11 +49,24 @@ func validateAuthor(name, biography string) (string, string, error) {
 	biography = strings.TrimSpace(biography)
 
 	if name == "" {
-		return "", "", fmt.Errorf("%w: author name is required", ErrInvalidAuthor)
+		return "", "", fmt.Errorf(
+			"%w: author name is required",
+			ErrInvalidAuthor,
+		)
+	}
+
+	if !validateAlphabeticName(name) {
+		return "", "", fmt.Errorf(
+			"%w: author name must contain letters and spaces only",
+			ErrInvalidAuthor,
+		)
 	}
 
 	if len(name) > 150 {
-		return "", "", fmt.Errorf("%w: author name must not exceed 150 characters", ErrInvalidAuthor)
+		return "", "", fmt.Errorf(
+			"%w: author name must not exceed 150 characters",
+			ErrInvalidAuthor,
+		)
 	}
 
 	return name, biography, nil

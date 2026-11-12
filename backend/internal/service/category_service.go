@@ -54,15 +54,31 @@ func validateCategory(
 	description = strings.TrimSpace(description)
 
 	if name == "" {
-		return "", "", fmt.Errorf("%w: category name is required", ErrInvalidCategory)
+		return "", "", fmt.Errorf(
+			"%w: category name is required",
+			ErrInvalidCategory,
+		)
+	}
+
+	if !validateAlphabeticName(name) {
+		return "", "", fmt.Errorf(
+			"%w: category name must contain letters and spaces only",
+			ErrInvalidCategory,
+		)
 	}
 
 	if len(name) > 100 {
-		return "", "", fmt.Errorf("%w: category name must not exceed 100 characters", ErrInvalidCategory)
+		return "", "", fmt.Errorf(
+			"%w: category name must not exceed 100 characters",
+			ErrInvalidCategory,
+		)
 	}
 
 	if len(description) > 10000 {
-		return "", "", fmt.Errorf("%w: description must not exceed 10000 characters", ErrInvalidCategory)
+		return "", "", fmt.Errorf(
+			"%w: description must not exceed 10000 characters",
+			ErrInvalidCategory,
+		)
 	}
 
 	return name, description, nil
