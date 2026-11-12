@@ -218,6 +218,23 @@ func CompleteGoogleRegistration(
 			return errors.New("failed to create pending profile")
 		}
 
+		// Build the recipient's complete name for email delivery.
+		nameParts := []string{
+			input.FirstName,
+		}
+
+		if middleName != nil {
+			nameParts = append(nameParts, *middleName)
+		}
+
+		nameParts = append(nameParts, input.LastName)
+
+		if suffix != nil {
+			nameParts = append(nameParts, *suffix)
+		}
+
+		recipientName := strings.Join(nameParts, " ")
+
 		// Queue the registration confirmation email in the same transaction.
 		details, err := json.Marshal([]model.EmailOutboxDetail{
 			{Label: "Username", Value: user.Username},
@@ -230,7 +247,7 @@ func CompleteGoogleRegistration(
 
 		email := model.EmailOutbox{
 			RecipientEmail: user.EmailAddress,
-			RecipientName:  user.Username,
+			RecipientName:  recipientName,
 			Subject:        "CARDex Registration Received",
 			Heading:        "Registration Received",
 			Message:        "Your Google registration has been received. Your profile is pending administrator approval.",
