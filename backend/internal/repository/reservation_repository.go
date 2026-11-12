@@ -179,25 +179,64 @@ func GetCreatedReservationDetails(
 	var details ReservationCreatedDetails
 
 	err := db.Raw(`
-		SELECT
-			r.reservation_id,
-			r.book_id,
-			b.title AS book_title,
-			r.user_id,
-			TRIM(CONCAT_WS(' ',
-				NULLIF(TRIM(up.first_name), ''),
-				NULLIF(TRIM(up.middle_name), ''),
-				NULLIF(TRIM(up.last_name), ''),
-				NULLIF(TRIM(up.suffix_extension), '')
-			)) AS real_name,
-			r.preferred_pickup_date,
-			r.reason AS notes,
-			r.status,
-			r.queue_position
-		FROM reservation r
-		JOIN book b ON b.book_id = r.book_id
-		JOIN user_profile up ON up.user_id = r.user_id
-		WHERE r.reservation_id = ?
+		
+SELECT
+    r.reservation_id,
+    r.book_id,
+    b.title AS book_title,
+    r.user_id,
+
+    COALESCE(
+        NULLIF(
+            TRIM(CONCAT_WS(' ',
+                NULLIF(TRIM(up.first_name), ''),
+                NULLIF(TRIM(up.middle_name), ''),
+                NULLIF(TRIM(up.last_name), ''),
+                NULLIF(TRIM(up.suffix_extension), '')
+            )),
+            ''
+        ),
+        NULLIF(
+            TRIM(CONCAT_WS(' ',
+                NULLIF(TRIM(pcr.first_name), ''),
+                NULLIF(TRIM(pcr.middle_name), ''),
+                NULLIF(TRIM(pcr.last_name), ''),
+                NULLIF(TRIM(pcr.suffix_extension), '')
+            )),
+            ''
+        ),
+        ''
+    ) AS real_name,
+
+    r.preferred_pickup_date,
+    r.reason AS notes,
+    r.status,
+    r.queue_position
+
+FROM reservation r
+JOIN book b
+    ON b.book_id = r.book_id
+
+LEFT JOIN user_profile up
+    ON up.user_id = r.user_id
+
+LEFT JOIN LATERAL (
+    SELECT
+        p.first_name,
+        p.middle_name,
+        p.last_name,
+        p.suffix_extension
+    FROM profile_change_request p
+    WHERE p.user_id = r.user_id
+      AND p.status = 'PENDING'
+    ORDER BY
+        p.created_at DESC,
+        p.change_request_id DESC
+    LIMIT 1
+) pcr ON TRUE
+
+WHERE r.reservation_id = ?
+
 	`, reservationID).Scan(&details).Error
 
 	return details, err
@@ -227,34 +266,81 @@ func GetReservationQueue(db *gorm.DB) ([]ReservationQueueItem, error) {
 
 	err := db.Raw(`
 		SELECT
-    r.reservation_id,
-    r.book_id,
-    b.title AS book_title,
-    r.user_id,
-    u.role_id AS role_id,
-	ur.role_name AS role,
-	up.institutional_id AS institutional_id,
-    TRIM(CONCAT_WS(' ',
-        NULLIF(TRIM(up.first_name), ''),
-        NULLIF(TRIM(up.middle_name), ''),
-        NULLIF(TRIM(up.last_name), ''),
-        NULLIF(TRIM(up.suffix_extension), '')
-    )) AS borrower_name,
-    r.copy_id,
-    r.reservation_date,
-    r.preferred_pickup_date,
-    r.status,
-    r.reason,
-    r.queue_position,
-    r.expiry_date,
-    r.created_at
-FROM reservation r
-JOIN book b ON b.book_id = r.book_id
-JOIN "user" u ON u.user_id = r.user_id
-JOIN user_role ur ON ur.role_id = u.role_id
-LEFT JOIN user_profile up ON up.user_id = r.user_id
-WHERE r.status IN ('PENDING', 'NOTIFIED')
-ORDER BY r.reservation_date ASC, r.reservation_id ASC
+			r.reservation_id,
+			r.book_id,
+			b.title AS book_title,
+			r.user_id,
+			u.role_id AS role_id,
+			ur.role_name AS role,
+
+			COALESCE(
+				NULLIF(up.institutional_id, ''),
+				pcr.institutional_id
+			) AS institutional_id,
+
+			COALESCE(
+				NULLIF(
+					TRIM(CONCAT_WS(' ',
+						NULLIF(TRIM(up.first_name), ''),
+						NULLIF(TRIM(up.middle_name), ''),
+						NULLIF(TRIM(up.last_name), ''),
+						NULLIF(TRIM(up.suffix_extension), '')
+					)),
+					''
+				),
+				NULLIF(
+					TRIM(CONCAT_WS(' ',
+						NULLIF(TRIM(pcr.first_name), ''),
+						NULLIF(TRIM(pcr.middle_name), ''),
+						NULLIF(TRIM(pcr.last_name), ''),
+						NULLIF(TRIM(pcr.suffix_extension), '')
+					)),
+					''
+				),
+				''
+			) AS borrower_name,
+
+			r.copy_id,
+			r.reservation_date,
+			r.preferred_pickup_date,
+			r.status,
+			r.reason,
+			r.queue_position,
+			r.expiry_date,
+			r.created_at
+
+		FROM reservation r
+		JOIN book b
+			ON b.book_id = r.book_id
+		JOIN "user" u
+			ON u.user_id = r.user_id
+		JOIN user_role ur
+			ON ur.role_id = u.role_id
+
+		LEFT JOIN user_profile up
+			ON up.user_id = r.user_id
+
+		LEFT JOIN LATERAL (
+			SELECT
+				p.first_name,
+				p.middle_name,
+				p.last_name,
+				p.suffix_extension,
+				p.institutional_id
+			FROM profile_change_request p
+			WHERE p.user_id = r.user_id
+			  AND p.status = 'PENDING'
+			ORDER BY
+				p.created_at DESC,
+				p.change_request_id DESC
+			LIMIT 1
+		) pcr ON TRUE
+
+		WHERE r.status IN ('PENDING', 'NOTIFIED')
+
+		ORDER BY
+			r.reservation_date ASC,
+			r.reservation_id ASC
 	`).Scan(&reservations).Error
 
 	if reservations == nil {
