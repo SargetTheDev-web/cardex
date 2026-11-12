@@ -158,19 +158,35 @@ func GetRecentAuditDashboardLogs(
 			al.user_id AS user_id,
 			al.created_at AS timestamp,
 
-			NULLIF(
-				TRIM(CONCAT_WS(' ',
-					NULLIF(up.first_name, ''),
-					NULLIF(up.middle_name, ''),
-					NULLIF(up.last_name, ''),
-					NULLIF(up.suffix_extension, '')
-				)),
-				''
+			COALESCE(
+				NULLIF(
+					TRIM(CONCAT_WS(' ',
+						NULLIF(TRIM(up.first_name), ''),
+						NULLIF(TRIM(up.middle_name), ''),
+						NULLIF(TRIM(up.last_name), ''),
+						NULLIF(TRIM(up.suffix_extension), '')
+					)),
+					''
+				),
+				NULLIF(
+					TRIM(CONCAT_WS(' ',
+						NULLIF(TRIM(pcr.first_name), ''),
+						NULLIF(TRIM(pcr.middle_name), ''),
+						NULLIF(TRIM(pcr.last_name), ''),
+						NULLIF(TRIM(pcr.suffix_extension), '')
+					)),
+					''
+				),
+				NULLIF(TRIM(u.username), '')
 			) AS full_name,
 
 			ur.role_name AS role,
 			ur.role_code AS role_code,
-			up.institutional_id AS institutional_id,
+
+			COALESCE(
+				NULLIF(TRIM(up.institutional_id), ''),
+				NULLIF(TRIM(pcr.institutional_id), '')
+			) AS institutional_id,
 
 			aa.action_name AS event_type,
 			al.description,
@@ -185,16 +201,39 @@ func GetRecentAuditDashboardLogs(
 			END AS severity
 
 		FROM audit_log al
+
 		JOIN audit_action aa
 			ON aa.action_id = al.action_id
+
 		LEFT JOIN "user" u
 			ON u.user_id = al.user_id
+
 		LEFT JOIN user_profile up
 			ON up.user_id = u.user_id
+
+		LEFT JOIN LATERAL (
+			SELECT
+				p.first_name,
+				p.middle_name,
+				p.last_name,
+				p.suffix_extension,
+				p.institutional_id
+			FROM profile_change_request p
+			WHERE p.user_id = u.user_id
+			  AND p.status = 'PENDING'
+			ORDER BY
+				p.created_at DESC,
+				p.change_request_id DESC
+			LIMIT 1
+		) pcr ON TRUE
+
 		LEFT JOIN user_role ur
 			ON ur.role_id = u.role_id
 
-		ORDER BY al.created_at DESC, al.log_id DESC
+		ORDER BY
+			al.created_at DESC,
+			al.log_id DESC
+
 		LIMIT ?
 	`, limit).Scan(&rows).Error
 
