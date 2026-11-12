@@ -82,94 +82,94 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 
 	protected.POST(
 		"/profile/update",
-		require("PROFILE_UPDATE_OWN"),
+		// require("PROFILE_UPDATE_OWN"),
 		handler.RequestProfileUpdateHandler(db),
 	)
 
 	protected.POST(
 		"/auth/change-password",
-		require("PROFILE_CHANGE_PASSWORD"),
+		// require("PROFILE_CHANGE_PASSWORD"),
 		handler.ChangePasswordHandler(db),
 	)
 
 	protected.POST("/auth/change-pin",
-		require("PROFILE_CHANGE_PIN"),
+		// require("PROFILE_CHANGE_PIN"),
 		handler.ChangePINHandler(db),
 	)
 
 	protected.GET(
 		"/categories",
-		require("CATEGORY_READ"),
+		// require("CATEGORY_READ"),
 		handler.GetCategoriesHandler(db),
 	)
 
 	protected.GET(
 		"/categories/:id",
-		require("CATEGORY_READ"),
+		// require("CATEGORY_READ"),
 		handler.GetCategoryHandler(db),
 	)
 
 	protected.GET(
 		"/authors",
-		require("AUTHOR_READ"),
+		// require("AUTHOR_READ"),
 		handler.GetAuthorsHandler(db),
 	)
 
 	protected.GET(
 		"/authors/:id",
-		require("AUTHOR_READ"),
+		// require("AUTHOR_READ"),
 		handler.GetAuthorHandler(db),
 	)
 
 	protected.GET(
 		"/publishers",
-		require("PUBLISHER_READ"),
+		// require("PUBLISHER_READ"),
 		handler.GetPublishersHandler(db),
 	)
 
 	protected.GET(
 		"/publishers/:id",
-		require("PUBLISHER_READ"),
+		// require("PUBLISHER_READ"),
 		handler.GetPublisherHandler(db),
 	)
 	protected.GET(
 		"/books",
-		require("BOOK_READ"),
+		// require("BOOK_READ"),
 		handler.GetBooksHandler(db),
 	)
 	protected.GET(
 		"/books/:id",
-		require("BOOK_READ"),
+		// require("BOOK_READ"),
 		handler.GetBookHandler(db),
 	)
 
 	protected.GET(
 		"/book-copies",
-		require("BOOK_COPY_READ"),
+		// require("BOOK_COPY_READ"),
 		handler.GetBookCopiesHandler(db),
 	)
 
 	protected.GET(
 		"/book-copies/:id",
-		require("BOOK_COPY_READ"),
+		// require("BOOK_COPY_READ"),
 		handler.GetBookCopyHandler(db),
 	)
 
 	protected.POST(
 		"/reservations",
-		require("RESERVATION_CREATE"),
+		// require("RESERVATION_CREATE"),
 		handler.CreateReservationHandler(db),
 	)
 
 	protected.GET(
 		"/reservations/mine",
-		require("RESERVATION_READ"),
+		// require("RESERVATION_READ"),
 		handler.GetMyReservationsHandler(db),
 	)
 
 	protected.DELETE(
 		"/reservations/:reservation_id",
-		require("RESERVATION_CANCEL"),
+		// require("RESERVATION_CANCEL"),
 		handler.CancelMyReservationHandler(db),
 	)
 
@@ -186,7 +186,7 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	// User Management - LIBRARIAN OR ADMIN
 	// --------------------------------------------------
 
-	librarian.GET(
+	protected.GET(
 		"/users",
 		require("USER_READ"),
 		handler.GetUsersHandler(db),
