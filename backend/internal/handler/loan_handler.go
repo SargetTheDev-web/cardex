@@ -248,10 +248,11 @@ func GetMyLoansHandler(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-func RenewMyLoanHandler(db *gorm.DB) gin.HandlerFunc {
+func RenewLoanHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID := c.GetInt("user_id")
-		if userID <= 0 {
+		// 1. Get the authenticated staff user's ID.
+		staffID := c.GetInt("user_id")
+		if staffID <= 0 {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"status":  http.StatusUnauthorized,
 				"error":   "UNAUTHORIZED",
@@ -260,7 +261,12 @@ func RenewMyLoanHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		loanID, err := strconv.ParseInt(c.Param("loan_id"), 10, 64)
+		// 2. Parse and validate the loan ID.
+		loanID, err := strconv.ParseInt(
+			c.Param("loan_id"),
+			10,
+			64,
+		)
 		if err != nil || loanID <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status":  http.StatusBadRequest,
@@ -270,21 +276,24 @@ func RenewMyLoanHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		result, err := service.RenewMyLoan(
+		// 3. Execute staff-managed loan renewal.
+		result, err := service.RenewLoan(
 			db,
-			userID,
 			loanID,
+			staffID,
 			c.ClientIP(),
 			c.Request.UserAgent(),
 		)
 
 		if err != nil {
+			// Log internal details server-side only.
 			log.Printf(
-				"[LOAN RENEWAL] user_id=%d loan_id=%d error=%v",
-				userID,
+				"[LOAN RENEWAL] staff_id=%d loan_id=%d error=%v",
+				staffID,
 				loanID,
 				err,
 			)
+
 			switch {
 			case errors.Is(err, service.ErrLoanNotFound):
 				c.JSON(http.StatusNotFound, gin.H{
@@ -329,16 +338,18 @@ func RenewMyLoanHandler(db *gorm.DB) gin.HandlerFunc {
 				})
 
 			default:
-				// Keep internal database and infrastructure errors out of the response.
+				// Do not expose database or infrastructure errors.
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"status":  http.StatusInternalServerError,
 					"error":   "LOAN_RENEWAL_FAILED",
 					"message": "Unable to renew this loan.",
 				})
 			}
+
 			return
 		}
 
+		// 4. Return successful renewal response.
 		c.JSON(http.StatusOK, gin.H{
 			"status":  http.StatusOK,
 			"error":   nil,

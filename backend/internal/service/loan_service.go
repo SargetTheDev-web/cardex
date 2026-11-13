@@ -488,73 +488,104 @@ type RenewLoanResult struct {
 	Message      string    `json:"message"`
 }
 
-func RenewMyLoan(
+func RenewLoan(
 	db *gorm.DB,
-	userID int,
 	loanID int64,
+	staffID int,
 	ipAddress string,
 	userAgent string,
 ) (*RenewLoanResult, error) {
-	if userID <= 0 || loanID <= 0 {
+	if staffID <= 0 || loanID <= 0 {
 		return nil, ErrInvalidLoanRequest
 	}
 
 	var result RenewLoanResult
 
 	err := db.Transaction(func(tx *gorm.DB) error {
-		// Read policy values from system_parameter.
-		maxRenewals, err := getPositivePolicyDays(tx, "LOAN_MAX_RENEWALS")
+		// 1. Load renewal policy.
+		maxRenewals, err := getPositivePolicyDays(
+			tx,
+			"LOAN_MAX_RENEWALS",
+		)
 		if err != nil {
 			return err
 		}
 
-		renewalDays, err := getPositivePolicyDays(tx, "LOAN_RENEWAL_DAYS")
+		renewalDays, err := getPositivePolicyDays(
+			tx,
+			"LOAN_RENEWAL_DAYS",
+		)
 		if err != nil {
 			return err
 		}
 
-		// Lock the loan row. Ownership is part of the query itself.
+		// 2. Lock the loan record.
+		// Staff may renew any borrower's loan.
 		var loan model.Loan
 
 		err = tx.
 			Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("loan_id = ? AND user_id = ?", loanID, userID).
+			Where("loan_id = ?", loanID).
 			First(&loan).Error
 
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Do not disclose whether another user's loan exists.
 			return ErrLoanNotFound
 		}
 		if err != nil {
 			return err
 		}
 
-		// Only currently borrowed loans can be renewed.
+		// 3. Validate loan status.
 		if loan.Status != "BORROWED" || loan.ReturnDate != nil {
 			return ErrRenewalNotAllowed
 		}
 
+		// 4. Validate renewal limit.
 		if loan.RenewalCount >= maxRenewals {
 			return ErrMaxRenewalsReached
 		}
 
-		// Use PostgreSQL's date rather than the application server clock.
+		// 5. Get database current date.
 		currentDate, err := repository.GetDatabaseCurrentDate(tx)
 		if err != nil {
 			return err
 		}
 
-		// A loan due today is still eligible. A loan due before today is overdue.
-		if loan.DueDate.Before(currentDate) {
+		// Normalize dates to avoid timezone-related comparisons.
+		currentDate = time.Date(
+			currentDate.Year(),
+			currentDate.Month(),
+			currentDate.Day(),
+			0, 0, 0, 0,
+			time.UTC,
+		)
+
+		dueDate := time.Date(
+			loan.DueDate.Year(),
+			loan.DueDate.Month(),
+			loan.DueDate.Day(),
+			0, 0, 0, 0,
+			time.UTC,
+		)
+
+		// A loan due today is eligible.
+		// A loan overdue before today cannot be renewed.
+		if dueDate.Before(currentDate) {
 			return ErrRenewalNotAllowed
 		}
 
-		// Reject renewal when the loan has an unpaid fine.
+		// 6. Check unpaid fines.
 		var unpaidFineCount int64
+
 		err = tx.
 			Table("fine").
-			Where("loan_id = ? AND status = ?", loanID, "PENDING").
+			Where(
+				"loan_id = ? AND status = ?",
+				loanID,
+				"PENDING",
+			).
 			Count(&unpaidFineCount).Error
+
 		if err != nil {
 			return err
 		}
@@ -563,31 +594,36 @@ func RenewMyLoan(
 			return ErrUnpaidFineExists
 		}
 
-		// Resolve the book associated with this loan.
+		// 7. Resolve the book associated with the loan.
 		var bookID int
+
 		err = tx.
 			Table("book_copy").
 			Select("book_id").
 			Where("copy_id = ?", loan.CopyID).
 			Scan(&bookID).Error
+
 		if err != nil {
 			return err
 		}
+
 		if bookID <= 0 {
 			return ErrLoanNotFound
 		}
 
-		// Another borrower's pending reservation blocks renewal.
+		// 8. Check whether another borrower has a pending reservation.
 		var pendingReservationCount int64
+
 		err = tx.
 			Table("reservation").
 			Where(
 				"book_id = ? AND user_id <> ? AND status = ?",
 				bookID,
-				userID,
+				loan.UserID,
 				"PENDING",
 			).
 			Count(&pendingReservationCount).Error
+
 		if err != nil {
 			return err
 		}
@@ -596,22 +632,27 @@ func RenewMyLoan(
 			return ErrPendingReservation
 		}
 
-		previousDueDate := loan.DueDate
-		newDueDate := loan.DueDate.AddDate(0, 0, renewalDays)
+		// 9. Calculate the new due date.
+		previousDueDate := dueDate
+
+		newDueDate := dueDate.AddDate(
+			0,
+			0,
+			renewalDays,
+		)
+
 		newRenewalCount := loan.RenewalCount + 1
 
-		// Update only if the loan is still eligible.
+		// 10. Update the loan atomically.
 		update := tx.
 			Model(&model.Loan{}).
 			Where(`
 				loan_id = ?
-				AND user_id = ?
 				AND status = ?
 				AND return_date IS NULL
 				AND renewal_count = ?
 			`,
 				loanID,
-				userID,
 				"BORROWED",
 				loan.RenewalCount,
 			).
@@ -628,15 +669,19 @@ func RenewMyLoan(
 			return ErrRenewalNotAllowed
 		}
 
+		// 11. Record the authenticated staff member as the audit actor.
 		if err := writeCirculationAudit(
 			tx,
-			userID,
+			staffID,
 			"UPDATE",
 			fmt.Sprintf(
-				"Borrower renewed loan ID %d. Previous due date: %s; new due date: %s",
+				"Staff user ID %d renewed loan ID %d for borrower user ID %d. Previous due date: %s; new due date: %s; renewal count: %d",
+				staffID,
 				loanID,
+				loan.UserID,
 				previousDueDate.Format("2006-01-02"),
 				newDueDate.Format("2006-01-02"),
+				newRenewalCount,
 			),
 			ipAddress,
 			userAgent,
@@ -644,6 +689,7 @@ func RenewMyLoan(
 			return err
 		}
 
+		// 12. Prepare response.
 		result = RenewLoanResult{
 			LoanID:       loanID,
 			PreviousDue:  previousDueDate,

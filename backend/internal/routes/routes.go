@@ -451,7 +451,7 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 	protected.POST(
 		"/loans/:loan_id/renew",
 		require("LOAN_CREATE"),
-		handler.RenewMyLoanHandler(db),
+		handler.RenewLoanHandler(db),
 	)
 
 	circulation.GET("/fines",
