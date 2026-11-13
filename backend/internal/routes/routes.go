@@ -65,6 +65,17 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 
 	protected := router.Group("/")
 	protected.Use(middleware.AuthMiddleware(db))
+
+	protected.GET(
+		"/loans/mine",
+		handler.GetMyLoansHandler(db),
+	)
+
+	protected.POST(
+		"/loans/:loan_id/renew",
+		handler.RenewMyLoanHandler(db),
+	)
+
 	protected.GET(
 		"/profile",
 		require("PROFILE_VIEW_OWN"),

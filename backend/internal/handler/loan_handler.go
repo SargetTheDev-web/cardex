@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"backend/internal/service"
 
@@ -212,6 +213,131 @@ func GetRecentTransactionsHandler(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"status": http.StatusOK,
 			"data":   transactions,
+		})
+	}
+}
+
+func GetMyLoansHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetInt("user_id")
+		if userID <= 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status":  http.StatusUnauthorized,
+				"error":   "UNAUTHORIZED",
+				"message": "Authentication required.",
+			})
+			return
+		}
+
+		loans, err := service.GetMyLoans(db, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"error":   "LOAN_RETRIEVAL_FAILED",
+				"message": "Unable to retrieve your loans.",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  http.StatusOK,
+			"error":   nil,
+			"message": "Loans retrieved successfully.",
+			"data":    loans,
+		})
+	}
+}
+
+func RenewMyLoanHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetInt("user_id")
+		if userID <= 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status":  http.StatusUnauthorized,
+				"error":   "UNAUTHORIZED",
+				"message": "Authentication required.",
+			})
+			return
+		}
+
+		loanID, err := strconv.ParseInt(c.Param("loan_id"), 10, 64)
+		if err != nil || loanID <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"error":   "INVALID_LOAN_ID",
+				"message": "A valid loan ID is required.",
+			})
+			return
+		}
+
+		result, err := service.RenewMyLoan(
+			db,
+			userID,
+			loanID,
+			c.ClientIP(),
+			c.Request.UserAgent(),
+		)
+
+		if err != nil {
+			switch {
+			case errors.Is(err, service.ErrLoanNotFound):
+				c.JSON(http.StatusNotFound, gin.H{
+					"status":  http.StatusNotFound,
+					"error":   "LOAN_NOT_FOUND",
+					"message": "Loan not found.",
+				})
+
+			case errors.Is(err, service.ErrInvalidLoanRequest):
+				c.JSON(http.StatusBadRequest, gin.H{
+					"status":  http.StatusBadRequest,
+					"error":   "INVALID_LOAN_REQUEST",
+					"message": "Invalid loan request.",
+				})
+
+			case errors.Is(err, service.ErrRenewalNotAllowed):
+				c.JSON(http.StatusConflict, gin.H{
+					"status":  http.StatusConflict,
+					"error":   "RENEWAL_NOT_ALLOWED",
+					"message": "This loan is not eligible for renewal.",
+				})
+
+			case errors.Is(err, service.ErrMaxRenewalsReached):
+				c.JSON(http.StatusConflict, gin.H{
+					"status":  http.StatusConflict,
+					"error":   "MAX_RENEWALS_REACHED",
+					"message": "The maximum number of renewals has been reached.",
+				})
+
+			case errors.Is(err, service.ErrUnpaidFineExists):
+				c.JSON(http.StatusConflict, gin.H{
+					"status":  http.StatusConflict,
+					"error":   "UNPAID_FINE_EXISTS",
+					"message": "Outstanding fines must be settled before renewing this loan.",
+				})
+
+			case errors.Is(err, service.ErrPendingReservation):
+				c.JSON(http.StatusConflict, gin.H{
+					"status":  http.StatusConflict,
+					"error":   "PENDING_RESERVATION_EXISTS",
+					"message": "Another borrower has reserved this book. Renewal is not allowed.",
+				})
+
+			default:
+				// Keep internal database and infrastructure errors out of the response.
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"status":  http.StatusInternalServerError,
+					"error":   "LOAN_RENEWAL_FAILED",
+					"message": "Unable to renew this loan.",
+				})
+			}
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  http.StatusOK,
+			"error":   nil,
+			"message": result.Message,
+			"data":    result,
 		})
 	}
 }

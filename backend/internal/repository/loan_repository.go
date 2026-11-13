@@ -156,3 +156,57 @@ func GetRecentTransactions(
 
 	return transactions, nil
 }
+
+type MyLoan struct {
+	LoanID       int64      `json:"loan_id" gorm:"column:loan_id"`
+	BookTitle    string     `json:"book_title" gorm:"column:book_title"`
+	CopyID       int        `json:"copy_id" gorm:"column:copy_id"`
+	Barcode      string     `json:"barcode" gorm:"column:barcode"`
+	CopyStatus   string     `json:"copy_status" gorm:"column:copy_status"`
+	LoanDate     time.Time  `json:"loan_date" gorm:"column:loan_date"`
+	DueDate      time.Time  `json:"due_date" gorm:"column:due_date"`
+	ReturnDate   *time.Time `json:"return_date,omitempty" gorm:"column:return_date"`
+	RenewalCount int        `json:"renewal_count" gorm:"column:renewal_count"`
+	Status       string     `json:"status" gorm:"column:status"`
+	CreatedAt    time.Time  `json:"created_at" gorm:"column:created_at"`
+}
+
+func GetMyLoans(db *gorm.DB, userID int) ([]MyLoan, error) {
+	var loans []MyLoan
+
+	if userID <= 0 {
+		return nil, gorm.ErrInvalidData
+	}
+
+	err := db.
+		Table("loan AS l").
+		Select(`
+			l.loan_id,
+			b.title AS book_title,
+			l.copy_id,
+			COALESCE(bc.barcode, '') AS barcode,
+			bc.copy_status,
+			l.loan_date,
+			l.due_date,
+			l.return_date,
+			l.renewal_count,
+			l.status,
+			l.created_at
+		`).
+		Joins("INNER JOIN book_copy AS bc ON bc.copy_id = l.copy_id").
+		Joins("INNER JOIN book AS b ON b.book_id = bc.book_id").
+		Where("l.user_id = ?", userID).
+		Order("l.created_at DESC, l.loan_id DESC").
+		Limit(100).
+		Scan(&loans).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	if loans == nil {
+		loans = make([]MyLoan, 0)
+	}
+
+	return loans, nil
+}

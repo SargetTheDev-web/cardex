@@ -15,7 +15,7 @@ type Reservation struct {
 	Reason              *string    `json:"reason" gorm:"column:reason"`
 	QueuePosition       *int       `json:"queue_position" gorm:"column:queue_position"`
 	ExpiryDate          *time.Time `json:"expiry_date" gorm:"column:expiry_date"`
-	CreatedAt           time.Time  `json:"created_at" gorm:"column:created_at;autoCreateTime:false"`
+	CreatedAt           time.Time  `json:"created_at" gorm:"column:created_at;autoCreateTime"`
 
 	// Joined fields (read-only query results)
 	BookTitle  *string `json:"book_title" gorm:"column:book_title;-:migration"`
