@@ -310,14 +310,36 @@ func GetMyReservations(db *gorm.DB, userID int) ([]model.Reservation, error) {
 	}
 
 	var reservations []model.Reservation
+
 	err := db.
-		Where("user_id = ?", userID).
-		Order("reservation_date DESC, reservation_id DESC").
-		Find(&reservations).Error
+		Table("reservation AS r").
+		Select(`
+			r.*,
+			b.title AS book_title,
+			bc.copy_status AS copy_status
+		`).
+		Joins(`
+			LEFT JOIN book AS b
+				ON b.book_id = r.book_id
+		`).
+		Joins(`
+			LEFT JOIN book_copy AS bc
+				ON bc.copy_id = r.copy_id
+		`).
+		Where("r.user_id = ?", userID).
+		Order("r.created_at DESC, r.reservation_id DESC").
+		Limit(25).
+		Scan(&reservations).Error
+
+	if err != nil {
+		return nil, err
+	}
+
 	if reservations == nil {
 		reservations = []model.Reservation{}
 	}
-	return reservations, err
+
+	return reservations, nil
 }
 
 func GetReservationQueue(db *gorm.DB) ([]repository.ReservationQueueItem, error) {

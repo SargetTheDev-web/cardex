@@ -26,9 +26,25 @@ func GetMyReservations(
 	var reservations []model.Reservation
 
 	err := db.
-		Where("user_id = ?", userID).
-		Order("reservation_date DESC, reservation_id DESC").
-		Find(&reservations).Error
+		Table("reservation AS r").
+		Select(`
+			r.*,
+			b.title AS book_title,
+			bc.status AS copy_status
+		`).
+		Joins(`
+			LEFT JOIN book AS b
+				ON b.book_id = r.book_id
+		`).
+		Joins(`
+			LEFT JOIN book_copy AS bc
+				ON bc.copy_id = r.copy_id
+		`).
+		Where("r.user_id = ?", userID).
+		Order("r.created_at DESC, r.reservation_id DESC").
+		Limit(25).
+		Scan(&reservations).Error
+
 	if err != nil {
 		return nil, err
 	}
