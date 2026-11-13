@@ -157,14 +157,30 @@ func getNotificationResponses(
 		Select(`
 			n.notification_id,
 			n.user_id,
-			TRIM(CONCAT_WS(' ',
-				NULLIF(up.first_name, ''),
-				NULLIF(up.middle_name, ''),
-				NULLIF(up.last_name, ''),
-				NULLIF(up.suffix_extension, '')
-			)) AS name,
-			ur.role_code AS role_code,
-			up.institutional_id,
+
+			COALESCE(
+				NULLIF(TRIM(CONCAT_WS(' ',
+					NULLIF(ref_up.first_name, ''),
+					NULLIF(ref_up.middle_name, ''),
+					NULLIF(ref_up.last_name, ''),
+					NULLIF(ref_up.suffix_extension, '')
+				)), ''),
+				NULLIF(TRIM(CONCAT_WS(' ',
+					NULLIF(recipient_up.first_name, ''),
+					NULLIF(recipient_up.middle_name, ''),
+					NULLIF(recipient_up.last_name, ''),
+					NULLIF(recipient_up.suffix_extension, '')
+				)), '')
+			) AS name,
+
+			COALESCE(ref_ur.role_code, recipient_ur.role_code)
+				AS role_code,
+
+			COALESCE(
+				ref_up.institutional_id,
+				recipient_up.institutional_id
+			) AS institutional_id,
+
 			n.type,
 			n.channel,
 			n.subject,
@@ -174,10 +190,40 @@ func getNotificationResponses(
 			n.reference_type,
 			n.reference_id
 		`).
-		Joins(`JOIN "user" u ON u.user_id = n.user_id`).
-		Joins(`LEFT JOIN user_profile up ON up.user_id = u.user_id`).
-		Joins(`LEFT JOIN user_role ur ON ur.role_id = u.role_id`).
-		Where("n.user_id = ? AND n.channel = ?", userID, NotificationChannelInApp)
+		Joins(`JOIN "user" recipient_u
+			ON recipient_u.user_id = n.user_id`).
+		Joins(`LEFT JOIN user_profile recipient_up
+			ON recipient_up.user_id = recipient_u.user_id`).
+		Joins(`LEFT JOIN user_role recipient_ur
+			ON recipient_ur.role_id = recipient_u.role_id`).
+
+		// Resolve the referenced record.
+		Joins(`LEFT JOIN profile_change_request pcr
+			ON n.reference_type = 'PROFILE_CHANGE'
+			AND pcr.change_request_id = n.reference_id`).
+		Joins(`LEFT JOIN reservation r
+			ON n.reference_type = 'RESERVATION'
+			AND r.reservation_id = n.reference_id`).
+		Joins(`LEFT JOIN loan l
+			ON n.reference_type = 'LOAN'
+			AND l.loan_id = n.reference_id`).
+
+		// Resolve the person associated with the reference.
+		Joins(`LEFT JOIN "user" ref_u
+			ON ref_u.user_id = COALESCE(
+				pcr.user_id,
+				r.user_id,
+				l.user_id
+			)`).
+		Joins(`LEFT JOIN user_profile ref_up
+			ON ref_up.user_id = ref_u.user_id`).
+		Joins(`LEFT JOIN user_role ref_ur
+			ON ref_ur.role_id = ref_u.role_id`).
+		Where(
+			"n.user_id = ? AND n.channel = ?",
+			userID,
+			NotificationChannelInApp,
+		)
 
 	if unreadOnly {
 		query = query.Where("n.is_read = FALSE")
@@ -188,6 +234,7 @@ func getNotificationResponses(
 		Limit(limit).
 		Offset(offset).
 		Scan(&notifications).Error
+
 	if err != nil {
 		return nil, err
 	}
