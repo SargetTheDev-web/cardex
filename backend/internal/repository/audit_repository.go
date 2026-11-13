@@ -142,14 +142,10 @@ func GetAuditDashboardSummary(
 	return summary, err
 }
 
-func GetRecentAuditDashboardLogs(
+func GetTodayAuditDashboardLogs(
 	db *gorm.DB,
-	limit int,
+	start, end time.Time,
 ) ([]AuditDashboardLog, error) {
-	if limit < 1 || limit > 500 {
-		limit = 100
-	}
-
 	var rows []auditDashboardLogRow
 
 	err := db.Raw(`
@@ -230,12 +226,13 @@ func GetRecentAuditDashboardLogs(
 		LEFT JOIN user_role ur
 			ON ur.role_id = u.role_id
 
+		WHERE al.created_at >= ?
+		  AND al.created_at < ?
+
 		ORDER BY
 			al.created_at DESC,
 			al.log_id DESC
-
-		LIMIT ?
-	`, limit).Scan(&rows).Error
+	`, start, end).Scan(&rows).Error
 
 	if err != nil {
 		return nil, err

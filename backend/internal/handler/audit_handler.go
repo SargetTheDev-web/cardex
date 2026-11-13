@@ -24,10 +24,23 @@ func GetAuditDashboardHandler(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		now := time.Now().In(location)
-		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
+
+		start := time.Date(
+			now.Year(),
+			now.Month(),
+			now.Day(),
+			0, 0, 0, 0,
+			location,
+		)
+
 		end := start.AddDate(0, 0, 1)
 
-		summary, err := repository.GetAuditDashboardSummary(db, start, end)
+		// Get today's audit summary.
+		summary, err := repository.GetAuditDashboardSummary(
+			db,
+			start,
+			end,
+		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status":  500,
@@ -36,7 +49,12 @@ func GetAuditDashboardHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		logs, err := repository.GetRecentAuditDashboardLogs(db, 100)
+		// Get all audit logs recorded today.
+		logs, err := repository.GetTodayAuditDashboardLogs(
+			db,
+			start,
+			end,
+		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status":  500,
