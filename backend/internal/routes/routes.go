@@ -71,11 +71,6 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.GetMyLoansHandler(db),
 	)
 
-	protected.POST(
-		"/loans/:loan_id/renew",
-		handler.RenewMyLoanHandler(db),
-	)
-
 	protected.GET(
 		"/profile",
 		require("PROFILE_VIEW_OWN"),
@@ -451,6 +446,12 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		"/reservations/:reservation_id/fulfill",
 		require("LOAN_CREATE"),
 		handler.FulfillReservationHandler(db),
+	)
+
+	protected.POST(
+		"/loans/:loan_id/renew",
+		require("LOAN_CREATE"),
+		handler.RenewMyLoanHandler(db),
 	)
 
 	circulation.GET("/fines",
