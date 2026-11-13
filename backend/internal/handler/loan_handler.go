@@ -279,6 +279,12 @@ func RenewMyLoanHandler(db *gorm.DB) gin.HandlerFunc {
 		)
 
 		if err != nil {
+			log.Printf(
+				"[LOAN RENEWAL] user_id=%d loan_id=%d error=%v",
+				userID,
+				loanID,
+				err,
+			)
 			switch {
 			case errors.Is(err, service.ErrLoanNotFound):
 				c.JSON(http.StatusNotFound, gin.H{
