@@ -248,9 +248,59 @@ func GetMyLoansHandler(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+func RenewMyLoanHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetInt("user_id")
+		if userID <= 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status":  http.StatusUnauthorized,
+				"error":   "UNAUTHORIZED",
+				"message": "Authentication required.",
+			})
+			return
+		}
+
+		loanID, err := strconv.ParseInt(c.Param("loan_id"), 10, 64)
+		if err != nil || loanID <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  http.StatusBadRequest,
+				"error":   "INVALID_LOAN_ID",
+				"message": "A valid loan ID is required.",
+			})
+			return
+		}
+
+		result, err := service.RenewMyLoan(
+			db,
+			loanID,
+			userID,
+			c.ClientIP(),
+			c.Request.UserAgent(),
+		)
+
+		if err != nil {
+			log.Printf(
+				"[BORROWER LOAN RENEWAL] user_id=%d loan_id=%d error=%v",
+				userID,
+				loanID,
+				err,
+			)
+
+			handleLoanRenewalError(c, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  http.StatusOK,
+			"error":   nil,
+			"message": result.Message,
+			"data":    result,
+		})
+	}
+}
+
 func RenewLoanHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 1. Get the authenticated staff user's ID.
 		staffID := c.GetInt("user_id")
 		if staffID <= 0 {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -261,12 +311,7 @@ func RenewLoanHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 2. Parse and validate the loan ID.
-		loanID, err := strconv.ParseInt(
-			c.Param("loan_id"),
-			10,
-			64,
-		)
+		loanID, err := strconv.ParseInt(c.Param("loan_id"), 10, 64)
 		if err != nil || loanID <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"status":  http.StatusBadRequest,
@@ -276,7 +321,6 @@ func RenewLoanHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 3. Execute staff-managed loan renewal.
 		result, err := service.RenewLoan(
 			db,
 			loanID,
@@ -286,75 +330,75 @@ func RenewLoanHandler(db *gorm.DB) gin.HandlerFunc {
 		)
 
 		if err != nil {
-			// Log internal details server-side only.
 			log.Printf(
-				"[LOAN RENEWAL] staff_id=%d loan_id=%d error=%v",
+				"[STAFF LOAN RENEWAL] staff_id=%d loan_id=%d error=%v",
 				staffID,
 				loanID,
 				err,
 			)
 
-			switch {
-			case errors.Is(err, service.ErrLoanNotFound):
-				c.JSON(http.StatusNotFound, gin.H{
-					"status":  http.StatusNotFound,
-					"error":   "LOAN_NOT_FOUND",
-					"message": "Loan not found.",
-				})
-
-			case errors.Is(err, service.ErrInvalidLoanRequest):
-				c.JSON(http.StatusBadRequest, gin.H{
-					"status":  http.StatusBadRequest,
-					"error":   "INVALID_LOAN_REQUEST",
-					"message": "Invalid loan request.",
-				})
-
-			case errors.Is(err, service.ErrRenewalNotAllowed):
-				c.JSON(http.StatusConflict, gin.H{
-					"status":  http.StatusConflict,
-					"error":   "RENEWAL_NOT_ALLOWED",
-					"message": "This loan is not eligible for renewal.",
-				})
-
-			case errors.Is(err, service.ErrMaxRenewalsReached):
-				c.JSON(http.StatusConflict, gin.H{
-					"status":  http.StatusConflict,
-					"error":   "MAX_RENEWALS_REACHED",
-					"message": "The maximum number of renewals has been reached.",
-				})
-
-			case errors.Is(err, service.ErrUnpaidFineExists):
-				c.JSON(http.StatusConflict, gin.H{
-					"status":  http.StatusConflict,
-					"error":   "UNPAID_FINE_EXISTS",
-					"message": "Outstanding fines must be settled before renewing this loan.",
-				})
-
-			case errors.Is(err, service.ErrPendingReservation):
-				c.JSON(http.StatusConflict, gin.H{
-					"status":  http.StatusConflict,
-					"error":   "PENDING_RESERVATION_EXISTS",
-					"message": "Another borrower has reserved this book. Renewal is not allowed.",
-				})
-
-			default:
-				// Do not expose database or infrastructure errors.
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"status":  http.StatusInternalServerError,
-					"error":   "LOAN_RENEWAL_FAILED",
-					"message": "Unable to renew this loan.",
-				})
-			}
-
+			handleLoanRenewalError(c, err)
 			return
 		}
 
-		// 4. Return successful renewal response.
 		c.JSON(http.StatusOK, gin.H{
 			"status":  http.StatusOK,
 			"error":   nil,
 			"message": result.Message,
 			"data":    result,
+		})
+	}
+}
+
+func handleLoanRenewalError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, service.ErrLoanNotFound):
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":  http.StatusNotFound,
+			"error":   "LOAN_NOT_FOUND",
+			"message": "Loan not found.",
+		})
+
+	case errors.Is(err, service.ErrInvalidLoanRequest):
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"error":   "INVALID_LOAN_REQUEST",
+			"message": "Invalid loan request.",
+		})
+
+	case errors.Is(err, service.ErrRenewalNotAllowed):
+		c.JSON(http.StatusConflict, gin.H{
+			"status":  http.StatusConflict,
+			"error":   "RENEWAL_NOT_ALLOWED",
+			"message": "This loan is not eligible for renewal.",
+		})
+
+	case errors.Is(err, service.ErrMaxRenewalsReached):
+		c.JSON(http.StatusConflict, gin.H{
+			"status":  http.StatusConflict,
+			"error":   "MAX_RENEWALS_REACHED",
+			"message": "The maximum number of renewals has been reached.",
+		})
+
+	case errors.Is(err, service.ErrUnpaidFineExists):
+		c.JSON(http.StatusConflict, gin.H{
+			"status":  http.StatusConflict,
+			"error":   "UNPAID_FINE_EXISTS",
+			"message": "Outstanding fines must be settled before renewing this loan.",
+		})
+
+	case errors.Is(err, service.ErrPendingReservation):
+		c.JSON(http.StatusConflict, gin.H{
+			"status":  http.StatusConflict,
+			"error":   "PENDING_RESERVATION_EXISTS",
+			"message": "Another borrower has reserved this book. Renewal is not allowed.",
+		})
+
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"error":   "LOAN_RENEWAL_FAILED",
+			"message": "Unable to renew this loan.",
 		})
 	}
 }

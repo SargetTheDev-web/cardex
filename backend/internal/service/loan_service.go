@@ -499,6 +499,57 @@ func RenewLoan(
 		return nil, ErrInvalidLoanRequest
 	}
 
+	return renewLoan(
+		db,
+		loanID,
+		staffID,
+		nil,
+		ipAddress,
+		userAgent,
+	)
+}
+
+func GetMyLoans(db *gorm.DB, userID int) ([]repository.MyLoan, error) {
+	if userID <= 0 {
+		return nil, ErrInvalidLoanRequest
+	}
+
+	return repository.GetMyLoans(db, userID)
+}
+
+func RenewMyLoan(
+	db *gorm.DB,
+	loanID int64,
+	userID int,
+	ipAddress string,
+	userAgent string,
+) (*RenewLoanResult, error) {
+	if userID <= 0 || loanID <= 0 {
+		return nil, ErrInvalidLoanRequest
+	}
+
+	return renewLoan(
+		db,
+		loanID,
+		userID,
+		&userID,
+		ipAddress,
+		userAgent,
+	)
+}
+
+func renewLoan(
+	db *gorm.DB,
+	loanID int64,
+	actorID int,
+	ownerID *int,
+	ipAddress string,
+	userAgent string,
+) (*RenewLoanResult, error) {
+	if db == nil || loanID <= 0 || actorID <= 0 {
+		return nil, ErrInvalidLoanRequest
+	}
+
 	var result RenewLoanResult
 
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -520,17 +571,24 @@ func RenewLoan(
 		}
 
 		// 2. Lock the loan record.
-		// Staff may renew any borrower's loan.
+		// Borrowers can only access their own loans.
+		// Staff can access any borrower's loan.
+		query := tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("loan_id = ?", loanID)
+
+		if ownerID != nil {
+			query = query.Where("user_id = ?", *ownerID)
+		}
+
 		var loan model.Loan
 
-		err = tx.
-			Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("loan_id = ?", loanID).
-			First(&loan).Error
+		err = query.First(&loan).Error
 
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrLoanNotFound
 		}
+
 		if err != nil {
 			return err
 		}
@@ -540,18 +598,18 @@ func RenewLoan(
 			return ErrRenewalNotAllowed
 		}
 
-		// 4. Validate renewal limit.
+		// 4. Enforce maximum renewal count.
 		if loan.RenewalCount >= maxRenewals {
 			return ErrMaxRenewalsReached
 		}
 
-		// 5. Get database current date.
+		// 5. Get the database's current date.
 		currentDate, err := repository.GetDatabaseCurrentDate(tx)
 		if err != nil {
 			return err
 		}
 
-		// Normalize dates to avoid timezone-related comparisons.
+		// Normalize dates to prevent timezone-related comparisons.
 		currentDate = time.Date(
 			currentDate.Year(),
 			currentDate.Month(),
@@ -569,12 +627,12 @@ func RenewLoan(
 		)
 
 		// A loan due today is eligible.
-		// A loan overdue before today cannot be renewed.
+		// An overdue loan cannot be renewed.
 		if dueDate.Before(currentDate) {
 			return ErrRenewalNotAllowed
 		}
 
-		// 6. Check unpaid fines.
+		// 6. Check for unpaid fines.
 		var unpaidFineCount int64
 
 		err = tx.
@@ -611,7 +669,9 @@ func RenewLoan(
 			return ErrLoanNotFound
 		}
 
-		// 8. Check whether another borrower has a pending reservation.
+		// 8. Check for another borrower's pending reservation.
+		// Exclude the actual borrower, not the staff member
+		// performing the renewal.
 		var pendingReservationCount int64
 
 		err = tx.
@@ -635,7 +695,7 @@ func RenewLoan(
 		// 9. Calculate the new due date.
 		previousDueDate := dueDate
 
-		newDueDate := dueDate.AddDate(
+		newDueDate := previousDueDate.AddDate(
 			0,
 			0,
 			renewalDays,
@@ -643,7 +703,9 @@ func RenewLoan(
 
 		newRenewalCount := loan.RenewalCount + 1
 
-		// 10. Update the loan atomically.
+		// 10. Update the loan.
+		// The row lock protects this operation from concurrent
+		// renewal requests for the same loan.
 		update := tx.
 			Model(&model.Loan{}).
 			Where(`
@@ -669,14 +731,22 @@ func RenewLoan(
 			return ErrRenewalNotAllowed
 		}
 
-		// 11. Record the authenticated staff member as the audit actor.
+		// 11. Determine the actor for audit logging.
+		actorType := "STAFF"
+
+		if ownerID != nil {
+			actorType = "BORROWER"
+		}
+
+		// 12. Record the renewal.
 		if err := writeCirculationAudit(
 			tx,
-			staffID,
+			actorID,
 			"UPDATE",
 			fmt.Sprintf(
-				"Staff user ID %d renewed loan ID %d for borrower user ID %d. Previous due date: %s; new due date: %s; renewal count: %d",
-				staffID,
+				"%s user ID %d renewed loan ID %d for borrower user ID %d. Previous due date: %s; new due date: %s; renewal count: %d",
+				actorType,
+				actorID,
 				loanID,
 				loan.UserID,
 				previousDueDate.Format("2006-01-02"),
@@ -689,7 +759,7 @@ func RenewLoan(
 			return err
 		}
 
-		// 12. Prepare response.
+		// 13. Prepare response.
 		result = RenewLoanResult{
 			LoanID:       loanID,
 			PreviousDue:  previousDueDate,
@@ -706,12 +776,4 @@ func RenewLoan(
 	}
 
 	return &result, nil
-}
-
-func GetMyLoans(db *gorm.DB, userID int) ([]repository.MyLoan, error) {
-	if userID <= 0 {
-		return nil, ErrInvalidLoanRequest
-	}
-
-	return repository.GetMyLoans(db, userID)
 }
