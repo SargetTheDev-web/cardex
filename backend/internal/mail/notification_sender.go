@@ -110,8 +110,6 @@ func SendNotificationEmail(to string, data NotificationEmailData) error {
 
                         <p style="margin: 0 0 22px 0; white-space: pre-line;">{{.Message}}</p>
 
-						<p style="margin: 0 0 22px 0; white-space: pre-line;">{{.Message}}</p>
-
 						<p style="margin: 0 0 22px 0; color: #333333;">
     						Best regards,<br>
     						<strong>CARDex Smart Library</strong>
