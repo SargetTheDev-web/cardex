@@ -44,7 +44,7 @@ func (s *NotificationService) ProcessDueSoonLoans() error {
 		LEFT JOIN user_profile AS up
 			ON up.user_id = u.user_id
 		WHERE l.status = 'BORROWED'
-		  AND l.due_date::date = CURRENT_DATE + 2
+		  AND l.due_date::date = CURRENT_DATE + 3
 	`).Scan(&loans).Error
 
 	if err != nil {
