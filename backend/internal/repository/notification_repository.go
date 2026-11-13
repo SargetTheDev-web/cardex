@@ -196,6 +196,9 @@ func getNotificationResponses(
 }
 
 // GetAllNotifications returns all notifications across all users.
+// For referenced notifications, identity fields represent the person
+// associated with the referenced record. Otherwise, they represent
+// the notification recipient.
 func GetAllNotifications(
 	db *gorm.DB,
 	limit int,
@@ -214,14 +217,30 @@ func GetAllNotifications(
 		Select(`
 			n.notification_id,
 			n.user_id,
-			TRIM(CONCAT_WS(' ',
-				NULLIF(up.first_name, ''),
-				NULLIF(up.middle_name, ''),
-				NULLIF(up.last_name, ''),
-				NULLIF(up.suffix_extension, '')
-			)) AS name,
-			ur.role_code AS role_code,
-			up.institutional_id,
+
+			COALESCE(
+				NULLIF(TRIM(CONCAT_WS(' ',
+					NULLIF(profile_up.first_name, ''),
+					NULLIF(profile_up.middle_name, ''),
+					NULLIF(profile_up.last_name, ''),
+					NULLIF(profile_up.suffix_extension, '')
+				)), ''),
+				TRIM(CONCAT_WS(' ',
+					NULLIF(recipient_up.first_name, ''),
+					NULLIF(recipient_up.middle_name, ''),
+					NULLIF(recipient_up.last_name, ''),
+					NULLIF(recipient_up.suffix_extension, '')
+				))
+			) AS name,
+
+			COALESCE(profile_ur.role_code, recipient_ur.role_code)
+				AS role_code,
+
+			COALESCE(
+				profile_up.institutional_id,
+				recipient_up.institutional_id
+			) AS institutional_id,
+
 			n.type,
 			n.channel,
 			n.subject,
@@ -231,9 +250,24 @@ func GetAllNotifications(
 			n.reference_type,
 			n.reference_id
 		`).
-		Joins(`JOIN "user" u ON u.user_id = n.user_id`).
-		Joins(`LEFT JOIN user_profile up ON up.user_id = u.user_id`).
-		Joins(`LEFT JOIN user_role ur ON ur.role_id = u.role_id`).
+		// Notification recipient.
+		Joins(`JOIN "user" recipient_u
+			ON recipient_u.user_id = n.user_id`).
+		Joins(`LEFT JOIN user_profile recipient_up
+			ON recipient_up.user_id = recipient_u.user_id`).
+		Joins(`LEFT JOIN user_role recipient_ur
+			ON recipient_ur.role_id = recipient_u.role_id`).
+
+		// Profile change request.
+		Joins(`LEFT JOIN profile_change_request pcr
+			ON n.reference_type = 'PROFILE_CHANGE'
+			AND pcr.change_request_id = n.reference_id`).
+		Joins(`LEFT JOIN "user" profile_u
+			ON profile_u.user_id = pcr.user_id`).
+		Joins(`LEFT JOIN user_profile profile_up
+			ON profile_up.user_id = profile_u.user_id`).
+		Joins(`LEFT JOIN user_role profile_ur
+			ON profile_ur.role_id = profile_u.role_id`).
 		Order("n.created_at DESC, n.notification_id DESC").
 		Limit(limit).
 		Offset(offset).
