@@ -109,6 +109,7 @@ func (s *NotificationService) ProcessDueSoonLoans() error {
 
 			// The unique index prevents duplicate in-app notices and
 			// therefore prevents duplicate email enqueueing for this loan.
+
 			result := tx.Clauses(clause.OnConflict{
 				Columns: []clause.Column{
 					{Name: "user_id"},
@@ -130,6 +131,9 @@ func (s *NotificationService) ProcessDueSoonLoans() error {
 						clause.Eq{
 							Column: clause.Column{Name: "reference_type"},
 							Value:  "LOAN",
+						},
+						clause.Expr{
+							SQL: "reference_id IS NOT NULL",
 						},
 					},
 				},
