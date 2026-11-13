@@ -97,11 +97,14 @@ func (s *NotificationService) ProcessDueSoonLoans() error {
 			referenceID := loan.LoanID
 
 			notification := model.Notification{
-				UserID:        loan.UserID,
-				Type:          "DUE_SOON",
-				Channel:       repository.NotificationChannelInApp,
-				Subject:       "Upcoming Book Due Date",
-				Message:       fmt.Sprintf("One of your borrowed books is due on %s. Please return or renew it on or before the due date.", loan.DueDate),
+				UserID:  loan.UserID,
+				Type:    "DUE_SOON",
+				Channel: repository.NotificationChannelInApp,
+				Subject: "Book Due Soon",
+				Message: fmt.Sprintf(
+					"Your borrowed book is due on %s. Please return or renew it on or before this date to avoid overdue penalties.",
+					loan.DueDate,
+				),
 				IsRead:        false,
 				ReferenceType: &referenceType,
 				ReferenceID:   &referenceID,
@@ -167,11 +170,14 @@ func (s *NotificationService) ProcessDueSoonLoans() error {
 			email := model.EmailOutbox{
 				RecipientEmail: loan.Email,
 				RecipientName:  recipientName,
-				Subject:        "CARDex Upcoming Book Due Date",
+				Subject:        "CARDex: Your Borrowed Book Is Due Soon",
 				Heading:        "Your Book Is Due Soon",
-				Message:        "This is a courtesy reminder from CARDex that one of your borrowed library items is approaching its due date. Please return or renew your item on or before the indicated date to avoid overdue penalties and ensure uninterrupted library privileges.",
-				Details:        details,
-				Status:         "PENDING",
+				Message: fmt.Sprintf(
+					"This is a reminder that your borrowed library book is approaching its due date on %s. Please return the book or renew your loan on or before this date to avoid overdue penalties and maintain uninterrupted library borrowing privileges.",
+					loan.DueDate,
+				),
+				Details: details,
+				Status:  "PENDING",
 			}
 
 			if err := repository.EnqueueEmail(tx, &email); err != nil {
