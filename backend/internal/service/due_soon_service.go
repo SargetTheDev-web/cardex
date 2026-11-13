@@ -82,7 +82,7 @@ func (s *NotificationService) ProcessDueSoonLoans() error {
 				WHERE loan_id = ?
 				  AND user_id = ?
 				  AND status = 'BORROWED'
-				  AND due_date::date = CURRENT_DATE + 2
+				  AND due_date::date = CURRENT_DATE
 			`, loan.LoanID, loan.UserID).Scan(&stillEligible).Error
 
 			if err != nil {
