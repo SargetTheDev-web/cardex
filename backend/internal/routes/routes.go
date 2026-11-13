@@ -474,7 +474,7 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 
 	protected.GET(
 		"/reports/circulation-summary",
-		require("DASHBOARD_VIEW	_ANALYTICS"),
+		require("DASHBOARD_VIEW_ANALYTICS"),
 		handler.GetCirculationSummaryHandler(db),
 	)
 
