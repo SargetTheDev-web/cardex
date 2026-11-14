@@ -4,6 +4,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -22,6 +23,15 @@ func reservationIDParam(c *gin.Context) (int64, error) {
 }
 
 func reservationError(c *gin.Context, err error) {
+	if err != nil {
+		log.Printf(
+			"[RESERVATION ERROR] method=%s path=%s error=%+v",
+			c.Request.Method,
+			c.Request.URL.Path,
+			err,
+		)
+	}
+
 	switch {
 	case errors.Is(err, service.ErrInvalidReservationRequest),
 		errors.Is(err, service.ErrInvalidBorrowRequest):
