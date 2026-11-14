@@ -80,14 +80,17 @@ func CreateReservation(
 			return ErrBorrowerNotEligible
 		}
 
-		var bookExists bool
-		if err := tx.Raw(
-			`SELECT EXISTS (SELECT 1 FROM book WHERE book_id = ?)`,
-			input.BookID,
-		).Scan(&bookExists).Error; err != nil {
+		var bookTitle string
+
+		if err := tx.Raw(`
+    SELECT title
+    FROM book
+    WHERE book_id = ?
+`, input.BookID).Scan(&bookTitle).Error; err != nil {
 			return err
 		}
-		if !bookExists {
+
+		if strings.TrimSpace(bookTitle) == "" {
 			return ErrInvalidReservationRequest
 		}
 
@@ -138,11 +141,14 @@ func CreateReservation(
 
 		for _, staffID := range staffIDs {
 			notification := model.Notification{
-				UserID:        staffID,
-				Type:          "RESERVATION",
-				Channel:       repository.NotificationChannelInApp,
-				Subject:       "New Reservation Request",
-				Message:       "A new book reservation is waiting for review.",
+				UserID:  staffID,
+				Type:    "RESERVATION",
+				Channel: repository.NotificationChannelInApp,
+				Subject: "New Reservation Request",
+				Message: fmt.Sprintf(
+					"A new reservation request for \"%s\" is waiting for review.",
+					bookTitle,
+				),
 				IsRead:        false,
 				ReferenceType: &referenceType,
 				ReferenceID:   &referenceID,
