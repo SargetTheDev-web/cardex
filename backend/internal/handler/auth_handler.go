@@ -115,8 +115,8 @@ func LoginHandler(db *gorm.DB) gin.HandlerFunc {
 }
 
 type QRLoginRequest struct {
-	UserID int    `json:"user_id" binding:"required,gt=0"`
-	PIN    string `json:"pin" binding:"required"`
+	Payload string `json:"payload" binding:"required,max=64"`
+	PIN     string `json:"pin" binding:"required"`
 }
 
 func QRLoginHandler(db *gorm.DB) gin.HandlerFunc {
@@ -131,9 +131,38 @@ func QRLoginHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// --------------------------------------------------
+		// 1. Resolve QR payload to its owner
+		// --------------------------------------------------
+
+		userID, err := service.ResolveQRCode(
+			db,
+			req.Payload,
+		)
+
+		if err != nil {
+			if errors.Is(err, service.ErrInvalidQR) {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"status": http.StatusUnauthorized,
+					"error":  "invalid QR code or credentials",
+				})
+				return
+			}
+
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status": http.StatusInternalServerError,
+				"error":  "QR authentication failed",
+			})
+			return
+		}
+
+		// --------------------------------------------------
+		// 2. Authenticate using the resolved user ID and PIN
+		// --------------------------------------------------
+
 		result, err := service.LoginWithPIN(
 			db,
-			req.UserID,
+			userID,
 			req.PIN,
 			c.ClientIP(),
 			c.Request.UserAgent(),
@@ -161,6 +190,10 @@ func QRLoginHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// --------------------------------------------------
+		// 3. Retrieve user profile
+		// --------------------------------------------------
+
 		_, profile, profileErr := repository.GetUserProfile(
 			db,
 			result.User.UserID,
@@ -179,6 +212,10 @@ func QRLoginHandler(db *gorm.DB) gin.HandlerFunc {
 			lastName = profile.LastName
 			suffixExtension = profile.SuffixExtension
 		}
+
+		// --------------------------------------------------
+		// 4. Return the same response as normal login
+		// --------------------------------------------------
 
 		c.JSON(http.StatusOK, gin.H{
 			"status":                http.StatusOK,
