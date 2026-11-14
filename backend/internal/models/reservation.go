@@ -18,8 +18,8 @@ type Reservation struct {
 	CreatedAt           time.Time  `json:"created_at" gorm:"column:created_at;autoCreateTime"`
 
 	// Joined fields (read-only query results)
-	BookTitle  *string `json:"book_title" gorm:"column:book_title;-:migration"`
-	CopyStatus *string `json:"copy_status" gorm:"column:copy_status;-:migration"`
+	BookTitle  *string `json:"book_title" gorm:"column:book_title;->"`
+	CopyStatus *string `json:"copy_status" gorm:"column:copy_status;->"`
 }
 
 func (Reservation) TableName() string {
