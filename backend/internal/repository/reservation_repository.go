@@ -352,7 +352,7 @@ func GetReservationQueue(db *gorm.DB) ([]ReservationQueueItem, error) {
 			LIMIT 1
 		) pcr ON TRUE
 
-		WHERE r.status IN ('PENDING', 'NOTIFIED')
+		WHERE r.status IN ('PENDING', 'NOTIFIED', 'CANCELLED', 'COMPLETED')
 
 		ORDER BY
 			r.reservation_date ASC,
