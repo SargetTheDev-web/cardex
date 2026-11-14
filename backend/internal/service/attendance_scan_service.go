@@ -205,8 +205,8 @@ func RecordAttendanceScan(
 				}
 
 				message := fmt.Sprintf(
-					"User ID %d checked in and has %d overdue loan(s).",
-					userID,
+					"%s checked in and has %d overdue loan(s).",
+					fullName,
 					overdueCount,
 				)
 
