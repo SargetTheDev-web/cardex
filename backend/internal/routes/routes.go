@@ -550,4 +550,24 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 			handler.UpdateRBACMatrixHandler(db),
 		)
 	}
+
+	protected.POST(
+		"/qr/generate",
+		handler.QRGenerateHandler(db),
+	)
+
+	protected.GET(
+		"/qr/me",
+		handler.QRGetHandler(db),
+	)
+
+	protected.POST(
+		"/qr/regenerate",
+		handler.QRRegenerateHandler(db),
+	)
+
+	protected.DELETE(
+		"/qr/me",
+		handler.QRDeleteHandler(db),
+	)
 }
