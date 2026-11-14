@@ -57,6 +57,11 @@ func reservationError(c *gin.Context, err error) {
 		c.JSON(http.StatusConflict, gin.H{
 			"status": "error", "message": err.Error(),
 		})
+	case errors.Is(err, service.ErrReservationLimitReached):
+		c.JSON(http.StatusConflict, gin.H{
+			"status":  409,
+			"message": err.Error(),
+		})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "error", "message": "Unable to process reservation",

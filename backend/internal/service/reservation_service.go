@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,9 @@ var (
 	ErrReservationConflict       = errors.New("user already has an active reservation for this book")
 	ErrNoAvailableCopy           = errors.New("no available copy for this book")
 	ErrReservationNotNextInQueue = errors.New("reservation is not next in the queue")
+	ErrReservationLimitReached   = errors.New(
+		"maximum active reservations reached",
+	)
 )
 
 type CreateReservationInput struct {
@@ -49,11 +53,14 @@ func CreateReservation(
 ) (*CreateReservationResult, error) {
 	notes := strings.TrimSpace(input.Notes)
 
-	if userID <= 0 || input.BookID <= 0 {
+	if db == nil || userID <= 0 || input.BookID <= 0 {
 		return nil, ErrInvalidReservationRequest
 	}
 
-	pickupDate, err := time.Parse("2006-01-02", strings.TrimSpace(input.PreferredPickupDate))
+	pickupDate, err := time.Parse(
+		"2006-01-02",
+		strings.TrimSpace(input.PreferredPickupDate),
+	)
 	if err != nil {
 		return nil, ErrInvalidReservationRequest
 	}
@@ -61,6 +68,23 @@ func CreateReservation(
 	var result model.Reservation
 
 	err = db.Transaction(func(tx *gorm.DB) error {
+		// Lock the user's account row to serialize concurrent
+		// reservation requests from the same user.
+		var lockedUserID int
+
+		if err := tx.Raw(`
+			SELECT user_id
+			FROM "user"
+			WHERE user_id = ?
+			FOR UPDATE
+		`, userID).Scan(&lockedUserID).Error; err != nil {
+			return err
+		}
+
+		if lockedUserID == 0 {
+			return ErrBorrowerNotEligible
+		}
+
 		account, err := repository.GetBorrowerAccount(tx, userID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -70,7 +94,8 @@ func CreateReservation(
 		}
 
 		if account.StatusCode != "ACTIVE" ||
-			(account.ExpirationDate != nil && !account.ExpirationDate.After(time.Now())) {
+			(account.ExpirationDate != nil &&
+				!account.ExpirationDate.After(time.Now())) {
 			return ErrBorrowerNotEligible
 		}
 
@@ -80,29 +105,78 @@ func CreateReservation(
 			return ErrBorrowerNotEligible
 		}
 
-		var bookTitle string
+		// Retrieve the configurable reservation limit.
+		maxReservationsValue, err := repository.GetSystemParameter(
+			tx,
+			"MAX_RESERVATIONS_PER_USER",
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"retrieve maximum reservations setting: %w",
+				err,
+			)
+		}
 
-		if err := tx.Raw(`
-    SELECT title
-    FROM book
-    WHERE book_id = ?
-`, input.BookID).Scan(&bookTitle).Error; err != nil {
+		maxReservations, err := strconv.Atoi(
+			strings.TrimSpace(maxReservationsValue),
+		)
+		if err != nil || maxReservations <= 0 {
+			return fmt.Errorf(
+				"invalid MAX_RESERVATIONS_PER_USER configuration: %q",
+				maxReservationsValue,
+			)
+		}
+
+		// Count the user's active reservations.
+		var activeReservationCount int64
+
+		if err := tx.Model(&model.Reservation{}).
+			Where("user_id = ?", userID).
+			Where("status IN ?", []string{
+				"PENDING",
+				"NOTIFIED",
+			}).
+			Count(&activeReservationCount).Error; err != nil {
 			return err
 		}
 
-		if strings.TrimSpace(bookTitle) == "" {
+		if activeReservationCount >= int64(maxReservations) {
+			return ErrReservationLimitReached
+		}
+
+		// Retrieve the book title.
+		var book struct {
+			Title string `gorm:"column:title"`
+		}
+
+		if err := tx.Table("book").
+			Select("title").
+			Where("book_id = ?", input.BookID).
+			Take(&book).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrInvalidReservationRequest
+			}
+			return err
+		}
+
+		bookTitle := strings.TrimSpace(book.Title)
+		if bookTitle == "" {
 			return ErrInvalidReservationRequest
 		}
 
 		var today time.Time
-		if err := tx.Raw(`SELECT CURRENT_DATE`).Scan(&today).Error; err != nil {
+
+		if err := tx.Raw(`SELECT CURRENT_DATE`).
+			Scan(&today).Error; err != nil {
 			return err
 		}
+
 		if pickupDate.Before(today) {
 			return ErrInvalidReservationRequest
 		}
 
 		var queuePosition int
+
 		if err := tx.Raw(`
 			SELECT COUNT(*) + 1
 			FROM reservation
@@ -119,6 +193,7 @@ func CreateReservation(
 			Status:              "PENDING",
 			QueuePosition:       &queuePosition,
 		}
+
 		if notes != "" {
 			reservation.Reason = &notes
 		}
@@ -129,9 +204,14 @@ func CreateReservation(
 
 		// Notify all active administrators and librarians.
 		var staffIDs []int
+
 		if err := tx.
 			Table(`"user"`).
-			Where("role_id IN ? AND status_id = ?", []int{1, 2, 3}, 3).
+			Where(
+				"role_id IN ? AND status_id = ?",
+				[]int{1, 2, 3},
+				3,
+			).
 			Pluck("user_id", &staffIDs).Error; err != nil {
 			return err
 		}
@@ -154,7 +234,10 @@ func CreateReservation(
 				ReferenceID:   &referenceID,
 			}
 
-			if err := repository.CreateNotification(tx, &notification); err != nil {
+			if err := repository.CreateNotification(
+				tx,
+				&notification,
+			); err != nil {
 				return err
 			}
 		}
@@ -183,7 +266,10 @@ func CreateReservation(
 		return nil, err
 	}
 
-	details, err := repository.GetCreatedReservationDetails(db, result.ReservationID)
+	details, err := repository.GetCreatedReservationDetails(
+		db,
+		result.ReservationID,
+	)
 	if err != nil {
 		return nil, err
 	}
