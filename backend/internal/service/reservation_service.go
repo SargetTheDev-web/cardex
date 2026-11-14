@@ -601,6 +601,14 @@ func FulfillReservation(
 			return ErrBorrowerNotEligible
 		}
 
+		if err := enforceBorrowingLimit(
+			tx,
+			reservation.UserID,
+			account.RoleCode,
+		); err != nil {
+			return err
+		}
+
 		loanDate, err := repository.GetDatabaseCurrentDate(tx)
 		if err != nil {
 			return err

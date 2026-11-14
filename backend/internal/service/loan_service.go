@@ -17,20 +17,23 @@ import (
 )
 
 var (
-	ErrInvalidBorrowRequest = errors.New("invalid borrow request")
-	ErrBorrowerNotEligible  = errors.New("borrower is not eligible to borrow")
-	ErrCopyUnavailable      = errors.New("book copy is unavailable")
-	ErrInvalidLoanPolicy    = errors.New("invalid borrowing policy")
-	ErrInvalidReturnRequest = errors.New("invalid return request")
-	ErrLoanNotFound         = errors.New("active loan not found")
-	ErrInvalidFinePolicy    = errors.New("invalid fine policy")
-	ErrBookIDMismatch       = errors.New("book ID does not match barcode")
-	ErrDueDateMismatch      = errors.New("due date does not match borrowing policy")
-	ErrInvalidLoanRequest   = errors.New("invalid loan request")
-	ErrRenewalNotAllowed    = errors.New("loan is not eligible for renewal")
-	ErrMaxRenewalsReached   = errors.New("maximum renewal count reached")
-	ErrUnpaidFineExists     = errors.New("unpaid fine prevents renewal")
-	ErrPendingReservation   = errors.New("another borrower has a pending reservation for this book")
+	ErrInvalidBorrowRequest  = errors.New("invalid borrow request")
+	ErrBorrowerNotEligible   = errors.New("borrower is not eligible to borrow")
+	ErrCopyUnavailable       = errors.New("book copy is unavailable")
+	ErrInvalidLoanPolicy     = errors.New("invalid borrowing policy")
+	ErrInvalidReturnRequest  = errors.New("invalid return request")
+	ErrLoanNotFound          = errors.New("active loan not found")
+	ErrInvalidFinePolicy     = errors.New("invalid fine policy")
+	ErrBookIDMismatch        = errors.New("book ID does not match barcode")
+	ErrDueDateMismatch       = errors.New("due date does not match borrowing policy")
+	ErrInvalidLoanRequest    = errors.New("invalid loan request")
+	ErrRenewalNotAllowed     = errors.New("loan is not eligible for renewal")
+	ErrMaxRenewalsReached    = errors.New("maximum renewal count reached")
+	ErrUnpaidFineExists      = errors.New("unpaid fine prevents renewal")
+	ErrPendingReservation    = errors.New("another borrower has a pending reservation for this book")
+	ErrBorrowingLimitReached = errors.New(
+		"maximum active borrowing limit reached",
+	)
 )
 
 type BorrowResult struct {
@@ -176,6 +179,14 @@ func BorrowBook(
 			)
 		default:
 			return ErrBorrowerNotEligible
+		}
+
+		if err := enforceBorrowingLimit(
+			tx,
+			borrowerID,
+			account.RoleCode,
+		); err != nil {
+			return err
 		}
 
 		copy, err := repository.LockBookCopyByBarcode(tx, barcode)
@@ -776,4 +787,71 @@ func renewLoan(
 	}
 
 	return &result, nil
+}
+
+func enforceBorrowingLimit(
+	tx *gorm.DB,
+	borrowerID int,
+	roleCode string,
+) error {
+	if borrowerID <= 0 {
+		return ErrInvalidBorrowRequest
+	}
+
+	var parameterKey string
+
+	switch roleCode {
+	case "STUDENT":
+		parameterKey = "MAX_BOOKS_PER_STUDENT"
+
+	case "FACULTY":
+		parameterKey = "MAX_BOOKS_PER_FACULTY"
+
+	default:
+		return ErrBorrowerNotEligible
+	}
+
+	// Lock the borrower's account row.
+	// This serializes concurrent borrowing operations
+	// for the same borrower.
+	var lockedUserID int
+
+	if err := tx.Raw(`
+		SELECT user_id
+		FROM "user"
+		WHERE user_id = ?
+		FOR UPDATE
+	`, borrowerID).Scan(&lockedUserID).Error; err != nil {
+		return err
+	}
+
+	if lockedUserID == 0 {
+		return ErrBorrowerNotEligible
+	}
+
+	// Retrieve the role-specific borrowing limit.
+	maxBooks, err := getPositivePolicyDays(tx, parameterKey)
+	if err != nil {
+		return err
+	}
+
+	// Count all currently active loans.
+	var activeLoanCount int64
+
+	if err := tx.
+		Table("loan").
+		Where("user_id = ?", borrowerID).
+		Where("status IN ?", []string{
+			"BORROWED",
+			"OVERDUE",
+		}).
+		Count(&activeLoanCount).Error; err != nil {
+		return err
+	}
+
+	if activeLoanCount >= int64(maxBooks) {
+		return ErrBorrowingLimitReached
+	}
+
+	return nil
 }

@@ -92,6 +92,11 @@ func BorrowBookHandler(db *gorm.DB) gin.HandlerFunc {
 					"error":   "invalid_loan_policy",
 					"message": "The borrowing policy is missing or invalid",
 				})
+			case errors.Is(err, service.ErrBorrowingLimitReached):
+				c.JSON(http.StatusConflict, gin.H{
+					"status":  409,
+					"message": err.Error(),
+				})
 			default:
 
 				c.JSON(http.StatusInternalServerError, gin.H{
