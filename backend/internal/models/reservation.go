@@ -21,3 +21,7 @@ type Reservation struct {
 	BookTitle  *string `json:"book_title" gorm:"column:book_title;-:migration"`
 	CopyStatus *string `json:"copy_status" gorm:"column:copy_status;-:migration"`
 }
+
+func (Reservation) TableName() string {
+	return "reservation"
+}
