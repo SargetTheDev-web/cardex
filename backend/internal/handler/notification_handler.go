@@ -34,37 +34,6 @@ func notificationUserID(c *gin.Context) (int, bool) {
 	return userID, true
 }
 
-func notificationPagination(c *gin.Context) (int, int, bool) {
-	limit := 20
-	offset := 0
-
-	if rawLimit := c.Query("limit"); rawLimit != "" {
-		value, err := strconv.Atoi(rawLimit)
-		if err != nil || value < 1 || value > 100 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status": http.StatusBadRequest,
-				"error":  "limit must be between 1 and 100",
-			})
-			return 0, 0, false
-		}
-		limit = value
-	}
-
-	if rawOffset := c.Query("offset"); rawOffset != "" {
-		value, err := strconv.Atoi(rawOffset)
-		if err != nil || value < 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status": http.StatusBadRequest,
-				"error":  "offset must be zero or greater",
-			})
-			return 0, 0, false
-		}
-		offset = value
-	}
-
-	return limit, offset, true
-}
-
 func GetNotificationsHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, ok := notificationUserID(c)
@@ -72,13 +41,8 @@ func GetNotificationsHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		limit, offset, ok := notificationPagination(c)
-		if !ok {
-			return
-		}
-
 		svc := service.NewNotificationService(db, nil)
-		notifications, err := svc.GetUserNotifications(userID, limit, offset)
+		notifications, err := svc.GetUserNotifications(userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status": http.StatusInternalServerError,
@@ -90,8 +54,6 @@ func GetNotificationsHandler(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"status":        http.StatusOK,
 			"notifications": notifications,
-			"limit":         limit,
-			"offset":        offset,
 		})
 	}
 }
@@ -103,13 +65,8 @@ func GetUnreadNotificationsHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		limit, offset, ok := notificationPagination(c)
-		if !ok {
-			return
-		}
-
 		svc := service.NewNotificationService(db, nil)
-		notifications, err := svc.GetUnreadUserNotifications(userID, limit, offset)
+		notifications, err := svc.GetUnreadUserNotifications(userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status": http.StatusInternalServerError,
@@ -121,8 +78,6 @@ func GetUnreadNotificationsHandler(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"status":        http.StatusOK,
 			"notifications": notifications,
-			"limit":         limit,
-			"offset":        offset,
 		})
 	}
 }
@@ -258,13 +213,8 @@ func DeleteNotificationHandler(db *gorm.DB) gin.HandlerFunc {
 
 func GetAllNotificationsHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		limit, offset, ok := notificationPagination(c)
-		if !ok {
-			return
-		}
-
 		svc := service.NewNotificationService(db, nil)
-		notifications, err := svc.GetAllNotifications(limit, offset)
+		notifications, err := svc.GetAllNotifications()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status": http.StatusInternalServerError,
@@ -276,8 +226,6 @@ func GetAllNotificationsHandler(db *gorm.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"status":        http.StatusOK,
 			"notifications": notifications,
-			"limit":         limit,
-			"offset":        offset,
 		})
 	}
 }

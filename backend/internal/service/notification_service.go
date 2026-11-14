@@ -57,6 +57,10 @@ func (s *NotificationService) CreateInApp(
 	tx *gorm.DB,
 	input CreateNotificationInput,
 ) error {
+	if s == nil || s.db == nil {
+		return errors.New("notification service database is required")
+	}
+
 	if err := validateNotificationInput(input); err != nil {
 		return err
 	}
@@ -85,6 +89,10 @@ func (s *NotificationService) CreateInAppForUsers(
 	userIDs []int,
 	input CreateNotificationInput,
 ) error {
+	if s == nil || s.db == nil {
+		return errors.New("notification service database is required")
+	}
+
 	if len(userIDs) == 0 {
 		return errors.New("at least one recipient is required")
 	}
@@ -153,31 +161,39 @@ func validateNotificationInput(
 
 func (s *NotificationService) GetUserNotifications(
 	userID int,
-	limit int,
-	offset int,
 ) ([]model.NotificationResponse, error) {
+	if s == nil || s.db == nil {
+		return nil, errors.New("notification service database is required")
+	}
+
 	if userID <= 0 {
 		return nil, errors.New("user_id must be positive")
 	}
 
-	return repository.GetUserNotifications(s.db, userID, limit, offset)
+	return repository.GetUserNotifications(s.db, userID)
 }
 
 func (s *NotificationService) GetUnreadUserNotifications(
 	userID int,
-	limit int,
-	offset int,
 ) ([]model.NotificationResponse, error) {
+	if s == nil || s.db == nil {
+		return nil, errors.New("notification service database is required")
+	}
+
 	if userID <= 0 {
 		return nil, errors.New("user_id must be positive")
 	}
 
-	return repository.GetUnreadUserNotifications(s.db, userID, limit, offset)
+	return repository.GetUnreadUserNotifications(s.db, userID)
 }
 
 func (s *NotificationService) GetUnreadCount(
 	userID int,
 ) (int64, error) {
+	if s == nil || s.db == nil {
+		return 0, errors.New("notification service database is required")
+	}
+
 	if userID <= 0 {
 		return 0, errors.New("user_id must be positive")
 	}
@@ -189,6 +205,10 @@ func (s *NotificationService) MarkAsRead(
 	userID int,
 	notificationID int64,
 ) (bool, error) {
+	if s == nil || s.db == nil {
+		return false, errors.New("notification service database is required")
+	}
+
 	if userID <= 0 || notificationID <= 0 {
 		return false, errors.New("user_id and notification_id must be positive")
 	}
@@ -203,6 +223,10 @@ func (s *NotificationService) MarkAsRead(
 func (s *NotificationService) MarkAllAsRead(
 	userID int,
 ) (int64, error) {
+	if s == nil || s.db == nil {
+		return 0, errors.New("notification service database is required")
+	}
+
 	if userID <= 0 {
 		return 0, errors.New("user_id must be positive")
 	}
@@ -214,6 +238,10 @@ func (s *NotificationService) Delete(
 	userID int,
 	notificationID int64,
 ) (bool, error) {
+	if s == nil || s.db == nil {
+		return false, errors.New("notification service database is required")
+	}
+
 	if userID <= 0 || notificationID <= 0 {
 		return false, errors.New("user_id and notification_id must be positive")
 	}
@@ -225,9 +253,13 @@ func (s *NotificationService) Delete(
 	)
 }
 
-func (s *NotificationService) GetAllNotifications(
-	limit int,
-	offset int,
-) ([]model.NotificationResponse, error) {
-	return repository.GetAllNotifications(s.db, limit, offset)
+func (s *NotificationService) GetAllNotifications() (
+	[]model.NotificationResponse,
+	error,
+) {
+	if s == nil || s.db == nil {
+		return nil, errors.New("notification service database is required")
+	}
+
+	return repository.GetAllNotifications(s.db)
 }

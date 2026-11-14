@@ -21,6 +21,10 @@ func CreateNotification(
 	tx *gorm.DB,
 	notification *model.Notification,
 ) error {
+	if tx == nil {
+		return errors.New("database connection is required")
+	}
+
 	if notification == nil {
 		return errors.New("notification is required")
 	}
@@ -33,10 +37,8 @@ func CreateNotification(
 func GetUserNotifications(
 	db *gorm.DB,
 	userID int,
-	limit int,
-	offset int,
 ) ([]model.NotificationResponse, error) {
-	return getNotificationResponses(db, userID, limit, offset, false)
+	return getNotificationResponses(db, userID, false)
 }
 
 // CountUnreadNotifications returns the user's unread in-app notification count.
@@ -131,24 +133,21 @@ func DeleteNotification(
 func GetUnreadUserNotifications(
 	db *gorm.DB,
 	userID int,
-	limit int,
-	offset int,
 ) ([]model.NotificationResponse, error) {
-	return getNotificationResponses(db, userID, limit, offset, true)
+	return getNotificationResponses(db, userID, true)
 }
 
 func getNotificationResponses(
 	db *gorm.DB,
 	userID int,
-	limit int,
-	offset int,
 	unreadOnly bool,
 ) ([]model.NotificationResponse, error) {
-	if limit < 1 || limit > 100 {
-		limit = 20
+	if db == nil {
+		return nil, errors.New("database connection is required")
 	}
-	if offset < 0 {
-		offset = 0
+
+	if userID <= 0 {
+		return nil, errors.New("user_id must be positive")
 	}
 
 	notifications := make([]model.NotificationResponse, 0)
@@ -231,8 +230,6 @@ func getNotificationResponses(
 
 	err := query.
 		Order("n.created_at DESC, n.notification_id DESC").
-		Limit(limit).
-		Offset(offset).
 		Scan(&notifications).Error
 
 	if err != nil {
@@ -248,14 +245,9 @@ func getNotificationResponses(
 // the notification recipient.
 func GetAllNotifications(
 	db *gorm.DB,
-	limit int,
-	offset int,
 ) ([]model.NotificationResponse, error) {
-	if limit < 1 || limit > 100 {
-		limit = 20
-	}
-	if offset < 0 {
-		offset = 0
+	if db == nil {
+		return nil, errors.New("database connection is required")
 	}
 
 	notifications := make([]model.NotificationResponse, 0)
@@ -316,8 +308,6 @@ func GetAllNotifications(
 		Joins(`LEFT JOIN user_role profile_ur
 			ON profile_ur.role_id = profile_u.role_id`).
 		Order("n.created_at DESC, n.notification_id DESC").
-		Limit(limit).
-		Offset(offset).
 		Scan(&notifications).Error
 
 	if err != nil {
