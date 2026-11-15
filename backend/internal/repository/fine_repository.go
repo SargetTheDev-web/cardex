@@ -52,7 +52,8 @@ func GetFines(
 			f.created_at
 		`).
 		Joins("JOIN loan l ON l.loan_id = f.loan_id").
-		Joins("JOIN book b ON b.book_id = l.book_id").
+		Joins("JOIN book_copy bc ON bc.copy_id = l.copy_id").
+		Joins("JOIN book b ON b.book_id = bc.book_id").
 		Joins(`JOIN "user" u ON u.user_id = l.user_id`).
 		Joins("LEFT JOIN user_profile up ON up.user_id = u.user_id").
 		Joins("LEFT JOIN user_role ur ON ur.role_id = u.role_id")
