@@ -161,7 +161,7 @@ WHERE l.status = 'BORROWED'
 				RecipientName:  recipientName,
 				Subject:        "CARDex Overdue Book Notice",
 				Heading:        "Overdue Book Notice",
-				Message:        "This is a formal reminder from CARDex regarding your borrowed item. Please return or renew your book on or before the due date to ensure uninterrupted library privileges. You may renew your item online through the student portal or at the library circulation desk.",
+				Message:        "This is a formal reminder from CARDex regarding your borrowed item. Please return your book on or before the due date to ensure uninterrupted library privileges.",
 				Details:        details,
 				Status:         "PENDING",
 			}

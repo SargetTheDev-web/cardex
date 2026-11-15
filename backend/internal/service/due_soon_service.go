@@ -179,7 +179,7 @@ WHERE l.status = 'BORROWED'
 				Subject:        "CARDex: Your Borrowed Book Is Due Soon",
 				Heading:        "Your Book Is Due Soon",
 				Message: fmt.Sprintf(
-					"This is a reminder that your borrowed library book is approaching its due date on %s. Please return the book or renew your loan on or before this date to avoid overdue penalties and maintain uninterrupted library borrowing privileges.",
+					"This is a reminder that your borrowed library book is approaching its due date on %s. Please return the book before this date to avoid overdue penalties and maintain uninterrupted library borrowing privileges.",
 					loan.DueDate,
 				),
 				Details: details,
