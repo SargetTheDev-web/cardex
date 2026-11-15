@@ -147,10 +147,11 @@ WHERE l.status = 'BORROWED'
 
 			details, err := json.Marshal([]model.EmailOutboxDetail{
 				{
-					Label: "Loan ID",
-					Value: fmt.Sprintf("%d", loan.LoanID),
+					Label: "Book Title",
+					Value: loan.BookTitle,
 				},
 			})
+
 			if err != nil {
 				return fmt.Errorf("marshal overdue email details: %w", err)
 			}

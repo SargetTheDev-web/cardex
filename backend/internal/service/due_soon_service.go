@@ -22,6 +22,7 @@ type dueSoonLoan struct {
 	MiddleName string `gorm:"column:middle_name"`
 	LastName   string `gorm:"column:last_name"`
 	Suffix     string `gorm:"column:suffix_extension"`
+	BookTitle  string `gorm:"column:book_title"`
 	DueDate    string `gorm:"column:due_date"`
 }
 
@@ -30,21 +31,26 @@ func (s *NotificationService) ProcessDueSoonLoans() error {
 
 	err := s.db.Raw(`
 		SELECT
-			l.loan_id,
-			l.user_id,
-			u.email_address,
-			up.first_name,
-			up.middle_name,
-			up.last_name,
-			up.suffix_extension,
-			TO_CHAR(l.due_date::date, 'YYYY-MM-DD') AS due_date
-		FROM loan AS l
-		JOIN "user" AS u
-			ON u.user_id = l.user_id
-		LEFT JOIN user_profile AS up
-			ON up.user_id = u.user_id
-		WHERE l.status = 'BORROWED'
-		  AND l.due_date::date = CURRENT_DATE
+    l.loan_id,
+    l.user_id,
+    u.email_address,
+    up.first_name,
+    up.middle_name,
+    up.last_name,
+    up.suffix_extension,
+    b.title AS book_title,
+    TO_CHAR(l.due_date::date, 'YYYY-MM-DD') AS due_date
+FROM loan AS l
+JOIN "user" AS u
+    ON u.user_id = l.user_id
+LEFT JOIN user_profile AS up
+    ON up.user_id = u.user_id
+JOIN book_copy AS bc
+    ON bc.copy_id = l.copy_id
+JOIN book AS b
+    ON b.book_id = bc.book_id
+WHERE l.status = 'BORROWED'
+  AND l.due_date::date = CURRENT_DATE + 1
 	`).Scan(&loans).Error
 
 	if err != nil {
@@ -154,8 +160,8 @@ func (s *NotificationService) ProcessDueSoonLoans() error {
 
 			details, err := json.Marshal([]model.EmailOutboxDetail{
 				{
-					Label: "Loan ID",
-					Value: fmt.Sprintf("%d", loan.LoanID),
+					Label: "Book Title",
+					Value: loan.BookTitle,
 				},
 				{
 					Label: "Due Date",
