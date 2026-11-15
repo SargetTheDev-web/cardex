@@ -25,14 +25,26 @@ func GetFines(
 			f.fine_id,
 			f.loan_id,
 			l.user_id,
+
 			TRIM(CONCAT_WS(' ',
 				NULLIF(up.first_name, ''),
 				NULLIF(up.middle_name, ''),
 				NULLIF(up.last_name, ''),
 				NULLIF(up.suffix_extension, '')
 			)) AS name,
+
 			ur.role_code AS role_code,
 			up.institutional_id,
+
+			b.title AS book_title,
+			b.isbn AS isbn,
+
+			l.loan_date,
+			l.due_date,
+			l.return_date,
+			l.borrow_notes,
+			l.return_notes,
+
 			f.amount,
 			f.reason,
 			f.status,
@@ -40,6 +52,7 @@ func GetFines(
 			f.created_at
 		`).
 		Joins("JOIN loan l ON l.loan_id = f.loan_id").
+		Joins("JOIN book b ON b.book_id = l.book_id").
 		Joins(`JOIN "user" u ON u.user_id = l.user_id`).
 		Joins("LEFT JOIN user_profile up ON up.user_id = u.user_id").
 		Joins("LEFT JOIN user_role ur ON ur.role_id = u.role_id")

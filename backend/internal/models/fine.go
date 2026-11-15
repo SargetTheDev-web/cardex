@@ -30,4 +30,13 @@ type FineResponse struct {
 	Status          string     `json:"status"`
 	PaidAt          *time.Time `json:"paid_at,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
+
+	BookTitle  string     `json:"book_title" gorm:"column:book_title"`
+	ISBN       string     `json:"isbn" gorm:"column:isbn"`
+	LoanDate   time.Time  `json:"loan_date" gorm:"column:loan_date"`
+	DueDate    time.Time  `json:"due_date" gorm:"column:due_date"`
+	ReturnDate *time.Time `json:"return_date" gorm:"column:return_date"`
+
+	BorrowNotes *string `json:"borrow_notes" gorm:"column:borrow_notes"`
+	ReturnNotes *string `json:"return_notes" gorm:"column:return_notes"`
 }
