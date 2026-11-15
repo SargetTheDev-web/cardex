@@ -169,6 +169,7 @@ type MyLoan struct {
 	RenewalCount int        `json:"renewal_count" gorm:"column:renewal_count"`
 	Status       string     `json:"status" gorm:"column:status"`
 	CreatedAt    time.Time  `json:"created_at" gorm:"column:created_at"`
+	ISBN         string     `json:"isbn" gorm:"column:isbn"`
 }
 
 func GetMyLoans(db *gorm.DB, userID int) ([]MyLoan, error) {
@@ -183,6 +184,7 @@ func GetMyLoans(db *gorm.DB, userID int) ([]MyLoan, error) {
 		Select(`
 			l.loan_id,
 			b.title AS book_title,
+			b.isbn AS isbn,
 			l.copy_id,
 			COALESCE(bc.barcode, '') AS barcode,
 			bc.copy_status,
