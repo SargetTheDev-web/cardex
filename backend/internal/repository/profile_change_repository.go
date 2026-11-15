@@ -13,6 +13,7 @@ func CreateProfileChangeRequest(
 	request *model.ProfileChangeRequest,
 ) error {
 	return db.Transaction(func(tx *gorm.DB) error {
+		// Create the profile change request first so its ID is available.
 		if err := tx.Create(request).Error; err != nil {
 			return err
 		}
@@ -25,14 +26,19 @@ func CreateProfileChangeRequest(
 			return err
 		}
 
+		referenceType := "PROFILE_CHANGE"
+		referenceID := request.ChangeRequestID
+
 		for _, adminID := range adminIDs {
 			notification := model.Notification{
-				UserID:  adminID,
-				Type:    "PROFILE_CHANGE",
-				Channel: NotificationChannelInApp,
-				Subject: "New Profile Change Request",
-				Message: "A profile change request is waiting for review.",
-				IsRead:  false,
+				UserID:        adminID,
+				Type:          "PROFILE_CHANGE",
+				Channel:       NotificationChannelInApp,
+				Subject:       "New Profile Change Request",
+				Message:       "A profile change request is waiting for review.",
+				IsRead:        false,
+				ReferenceType: &referenceType,
+				ReferenceID:   &referenceID,
 			}
 
 			if err := CreateNotification(tx, &notification); err != nil {
