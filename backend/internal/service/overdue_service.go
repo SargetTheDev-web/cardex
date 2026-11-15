@@ -22,6 +22,7 @@ type overdueLoan struct {
 	MiddleName string `gorm:"column:middle_name"`
 	LastName   string `gorm:"column:last_name"`
 	Suffix     string `gorm:"column:suffix_extension"`
+	BookTitle  string `gorm:"column:book_title"`
 }
 
 func (s *NotificationService) ProcessOverdueLoans() error {
@@ -29,20 +30,25 @@ func (s *NotificationService) ProcessOverdueLoans() error {
 
 	err := s.db.Raw(`
     SELECT
-        l.loan_id,
-        l.user_id,
-        u.email_address,
-        up.first_name,
-        up.middle_name,
-        up.last_name,
-        up.suffix_extension
-    FROM loan AS l
-    JOIN "user" AS u
-        ON u.user_id = l.user_id
-    LEFT JOIN user_profile AS up
-        ON up.user_id = u.user_id
-    WHERE l.status = 'BORROWED'
-      AND l.due_date < CURRENT_DATE
+    l.loan_id,
+    l.user_id,
+    u.email_address,
+    up.first_name,
+    up.middle_name,
+    up.last_name,
+    up.suffix_extension,
+    b.title AS book_title
+FROM loan AS l
+JOIN "user" AS u
+    ON u.user_id = l.user_id
+LEFT JOIN user_profile AS up
+    ON up.user_id = u.user_id
+JOIN book_copy AS bc
+    ON bc.copy_id = l.copy_id
+JOIN book AS b
+    ON b.book_id = bc.book_id
+WHERE l.status = 'BORROWED'
+  AND l.due_date < CURRENT_DATE
 `).Scan(&loans).Error
 	if err != nil {
 		return fmt.Errorf("find overdue loans: %w", err)
