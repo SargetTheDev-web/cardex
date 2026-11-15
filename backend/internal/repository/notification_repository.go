@@ -158,19 +158,25 @@ func getNotificationResponses(
 			n.user_id,
 
 			COALESCE(
-				NULLIF(TRIM(CONCAT_WS(' ',
-					NULLIF(ref_up.first_name, ''),
-					NULLIF(ref_up.middle_name, ''),
-					NULLIF(ref_up.last_name, ''),
-					NULLIF(ref_up.suffix_extension, '')
-				)), ''),
-				NULLIF(TRIM(CONCAT_WS(' ',
-					NULLIF(recipient_up.first_name, ''),
-					NULLIF(recipient_up.middle_name, ''),
-					NULLIF(recipient_up.last_name, ''),
-					NULLIF(recipient_up.suffix_extension, '')
-				)), '')
-			) AS name,
+    NULLIF(TRIM(CONCAT_WS(' ',
+        NULLIF(pcr.first_name, ''),
+        NULLIF(pcr.middle_name, ''),
+        NULLIF(pcr.last_name, ''),
+        NULLIF(pcr.suffix_extension, '')
+    )), ''),
+    NULLIF(TRIM(CONCAT_WS(' ',
+        NULLIF(ref_up.first_name, ''),
+        NULLIF(ref_up.middle_name, ''),
+        NULLIF(ref_up.last_name, ''),
+        NULLIF(ref_up.suffix_extension, '')
+    )), ''),
+    NULLIF(TRIM(CONCAT_WS(' ',
+        NULLIF(recipient_up.first_name, ''),
+        NULLIF(recipient_up.middle_name, ''),
+        NULLIF(recipient_up.last_name, ''),
+        NULLIF(recipient_up.suffix_extension, '')
+    )), '')
+) AS name,
 
 			COALESCE(ref_ur.role_code, recipient_ur.role_code)
 				AS role_code,
@@ -258,18 +264,25 @@ func GetAllNotifications(
 			n.user_id,
 
 			COALESCE(
-				NULLIF(TRIM(CONCAT_WS(' ',
-					NULLIF(profile_up.first_name, ''),
-					NULLIF(profile_up.middle_name, ''),
-					NULLIF(profile_up.last_name, ''),
-					NULLIF(profile_up.suffix_extension, '')
-				)), ''),
-				TRIM(CONCAT_WS(' ',
-					NULLIF(recipient_up.first_name, ''),
-					NULLIF(recipient_up.middle_name, ''),
-					NULLIF(recipient_up.last_name, ''),
-					NULLIF(recipient_up.suffix_extension, '')
-				))
+    NULLIF(TRIM(CONCAT_WS(' ',
+        NULLIF(pcr.first_name, ''),
+        NULLIF(pcr.middle_name, ''),
+        NULLIF(pcr.last_name, ''),
+        NULLIF(pcr.suffix_extension, '')
+    )), ''),
+    NULLIF(TRIM(CONCAT_WS(' ',
+        NULLIF(ref_up.first_name, ''),
+        NULLIF(ref_up.middle_name, ''),
+        NULLIF(ref_up.last_name, ''),
+        NULLIF(ref_up.suffix_extension, '')
+    )), ''),
+    NULLIF(TRIM(CONCAT_WS(' ',
+        NULLIF(recipient_up.first_name, ''),
+        NULLIF(recipient_up.middle_name, ''),
+        NULLIF(recipient_up.last_name, ''),
+        NULLIF(recipient_up.suffix_extension, '')
+    )), '')
+) AS name,
 			) AS name,
 
 			COALESCE(profile_ur.role_code, recipient_ur.role_code)
