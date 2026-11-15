@@ -88,7 +88,7 @@ WHERE l.status = 'BORROWED'
 				WHERE loan_id = ?
 				  AND user_id = ?
 				  AND status = 'BORROWED'
-				  AND due_date::date = CURRENT_DATE
+				  AND due_date::date = CURRENT_DATE + 1
 			`, loan.LoanID, loan.UserID).Scan(&stillEligible).Error
 
 			if err != nil {
