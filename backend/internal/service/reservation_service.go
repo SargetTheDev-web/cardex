@@ -26,6 +26,9 @@ var (
 	ErrReservationLimitReached   = errors.New(
 		"maximum active reservations reached",
 	)
+	ErrActiveLoanForBook = errors.New(
+		"you already have an active loan for this book",
+	)
 )
 
 type CreateReservationInput struct {
@@ -103,6 +106,27 @@ func CreateReservation(
 		case "STUDENT", "FACULTY":
 		default:
 			return ErrBorrowerNotEligible
+		}
+
+		var hasActiveLoan bool
+
+		if err := tx.Raw(`
+    SELECT EXISTS (
+        SELECT 1
+        FROM loan AS l
+        INNER JOIN book_copy AS bc
+            ON bc.copy_id = l.copy_id
+        WHERE l.user_id = ?
+          AND bc.book_id = ?
+          AND l.status IN ('BORROWED', 'OVERDUE')
+          AND l.return_date IS NULL
+    )
+`, userID, input.BookID).Scan(&hasActiveLoan).Error; err != nil {
+			return fmt.Errorf("check existing active loan: %w", err)
+		}
+
+		if hasActiveLoan {
+			return ErrActiveLoanForBook
 		}
 
 		// Retrieve the configurable reservation limit.
