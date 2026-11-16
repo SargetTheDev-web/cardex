@@ -873,9 +873,6 @@ func notifyReservationDecision(
 	if err != nil {
 		return fmt.Errorf("marshal reservation email details: %w", err)
 	}
-	if err != nil {
-		return fmt.Errorf("marshal reservation email details: %w", err)
-	}
 
 	email := model.EmailOutbox{
 		RecipientEmail: user.EmailAddress,
