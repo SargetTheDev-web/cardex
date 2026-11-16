@@ -4,6 +4,7 @@ package middleware
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -163,10 +164,51 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		if idle {
-			_ = repository.DeleteSessionByToken(
+			// Delete the expired session.
+			if err := repository.DeleteSessionByToken(db, tokenHash); err != nil {
+				log.Printf(
+					"[SESSION EXPIRATION] Failed to delete expired session: %v",
+					err,
+				)
+			}
+
+			// Retrieve the audit action ID.
+			actionID, auditErr := repository.GetAuditActionID(
 				db,
-				tokenHash,
+				"SESSION_EXPIRED",
 			)
+
+			if auditErr == nil {
+				// Retrieve the authentication module ID.
+				moduleID, moduleErr := repository.GetAuditModuleID(
+					db,
+					"AUTHENTICATION",
+				)
+
+				if moduleErr == nil {
+					description := "User session expired due to inactivity"
+
+					// Record the session expiration.
+					auditErr = repository.InsertAuditLog(
+						db,
+						&userID,
+						actionID,
+						moduleID,
+						description,
+						c.ClientIP(),
+						c.Request.UserAgent(),
+					)
+				} else {
+					auditErr = moduleErr
+				}
+			}
+
+			if auditErr != nil {
+				log.Printf(
+					"[SESSION EXPIRATION] Failed to record audit log: %v",
+					auditErr,
+				)
+			}
 
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"status": http.StatusUnauthorized,
