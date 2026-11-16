@@ -35,7 +35,7 @@ var (
 		"maximum active borrowing limit reached",
 	)
 	ErrActiveOverdueLoan = errors.New(
-		"borrowing is not allowed while you have an overdue loan",
+		"Transaction denied. Account has outstanding overdue items.",
 	)
 )
 
