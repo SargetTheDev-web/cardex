@@ -34,6 +34,9 @@ var (
 	ErrBorrowingLimitReached = errors.New(
 		"maximum active borrowing limit reached",
 	)
+	ErrActiveOverdueLoan = errors.New(
+		"borrowing is not allowed while you have an overdue loan",
+	)
 )
 
 type BorrowResult struct {
@@ -179,6 +182,24 @@ func BorrowBook(
 			)
 		default:
 			return ErrBorrowerNotEligible
+		}
+
+		// Prevent borrowers from borrowing while they have an overdue loan.
+		var hasOverdueLoan bool
+
+		if err := tx.Raw(`
+	SELECT EXISTS (
+		SELECT 1
+		FROM loan AS l
+		WHERE l.user_id = ?
+		  AND l.status = 'OVERDUE'
+	)
+`, borrowerID).Scan(&hasOverdueLoan).Error; err != nil {
+			return fmt.Errorf("check existing overdue loans: %w", err)
+		}
+
+		if hasOverdueLoan {
+			return ErrActiveOverdueLoan
 		}
 
 		if err := enforceBorrowingLimit(
