@@ -188,23 +188,49 @@ func ApproveReservationHandler(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+type RejectReservationRequest struct {
+	RejectionReason string `json:"rejection_reason" binding:"required"`
+}
+
 func RejectReservationHandler(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		staffID := c.GetInt("user_id")
-		id, err := reservationIDParam(c)
+
+		// Parse and validate the reservation ID.
+		reservationID, err := reservationIDParam(c)
 		if err != nil {
 			reservationError(c, err)
 			return
 		}
 
-		if err := service.RejectReservation(
-			db, id, staffID, c.ClientIP(), c.GetHeader("User-Agent"),
-		); err != nil {
+		// Bind the rejection request.
+		var input RejectReservationRequest
+
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  "error",
+				"message": "A valid rejection reason is required",
+			})
+			return
+		}
+
+		// Reject the reservation and record the reason.
+		err = service.RejectReservation(
+			db,
+			reservationID,
+			staffID,
+			input.RejectionReason,
+			c.ClientIP(),
+			c.Request.UserAgent(),
+		)
+		if err != nil {
 			reservationError(c, err)
 			return
 		}
+
 		c.JSON(http.StatusOK, gin.H{
-			"status": "success", "message": "Reservation rejected",
+			"status":  "success",
+			"message": "Reservation rejected successfully",
 		})
 	}
 }

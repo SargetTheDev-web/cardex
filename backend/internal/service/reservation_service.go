@@ -378,7 +378,12 @@ func ApproveReservation(
 			return err
 		}
 
-		if err := notifyReservationDecision(tx, &reservation, true); err != nil {
+		if err := notifyReservationDecision(
+			tx,
+			&reservation,
+			true,
+			"",
+		); err != nil {
 			return err
 		}
 
@@ -516,10 +521,16 @@ func RejectReservation(
 	db *gorm.DB,
 	reservationID int64,
 	staffID int,
+	rejectionReason string,
 	ip string,
 	userAgent string,
 ) error {
-	if reservationID <= 0 || staffID <= 0 {
+	rejectionReason = strings.TrimSpace(rejectionReason)
+
+	if reservationID <= 0 ||
+		staffID <= 0 ||
+		rejectionReason == "" ||
+		len([]rune(rejectionReason)) > 500 {
 		return ErrInvalidReservationRequest
 	}
 
@@ -539,7 +550,12 @@ func RejectReservation(
 			return err
 		}
 
-		if err := notifyReservationDecision(tx, &reservation, false); err != nil {
+		if err := notifyReservationDecision(
+			tx,
+			&reservation,
+			false,
+			rejectionReason,
+		); err != nil {
 			return err
 		}
 
@@ -548,9 +564,10 @@ func RejectReservation(
 			staffID,
 			"UPDATE",
 			fmt.Sprintf(
-				"Rejected reservation ID %d for user ID %d",
+				"Rejected reservation ID %d for user ID %d; reason: %s",
 				reservation.ReservationID,
 				reservation.UserID,
+				rejectionReason,
 			),
 			ip,
 			userAgent,
@@ -750,6 +767,7 @@ func notifyReservationDecision(
 	tx *gorm.DB,
 	reservation *model.Reservation,
 	approved bool,
+	rejectionReason string,
 ) error {
 	user, err := repository.GetUserByID(tx, reservation.UserID)
 	if err != nil {
@@ -805,6 +823,14 @@ func notifyReservationDecision(
 		subject = "Reservation Approved"
 		message = "Your book reservation has been approved and is ready for pickup."
 		status = "Approved"
+	} else {
+		rejectionReason = strings.TrimSpace(rejectionReason)
+
+		if rejectionReason == "" {
+			return errors.New("reservation rejection reason is required")
+		}
+
+		message += "\n\nReason: " + rejectionReason
 	}
 
 	referenceType := "RESERVATION"
@@ -825,10 +851,28 @@ func notifyReservationDecision(
 		return fmt.Errorf("create reservation notification: %w", err)
 	}
 
-	details, err := json.Marshal([]model.EmailOutboxDetail{
-		{Label: "Reservation ID", Value: fmt.Sprintf("%d", reservation.ReservationID)},
-		{Label: "Status", Value: status},
-	})
+	emailDetails := []model.EmailOutboxDetail{
+		{
+			Label: "Reservation ID",
+			Value: fmt.Sprintf("%d", reservation.ReservationID),
+		},
+		{
+			Label: "Status",
+			Value: status,
+		},
+	}
+
+	if !approved {
+		emailDetails = append(emailDetails, model.EmailOutboxDetail{
+			Label: "Rejection Reason",
+			Value: rejectionReason,
+		})
+	}
+
+	details, err := json.Marshal(emailDetails)
+	if err != nil {
+		return fmt.Errorf("marshal reservation email details: %w", err)
+	}
 	if err != nil {
 		return fmt.Errorf("marshal reservation email details: %w", err)
 	}
