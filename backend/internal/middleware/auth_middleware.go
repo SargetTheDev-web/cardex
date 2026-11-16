@@ -60,20 +60,34 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 		// 1. Validate JWT
 		// --------------------------------------------------
 
+		jwtSecret := os.Getenv("JWT_SECRET")
+
+		if jwtSecret == "" {
+			log.Println("[AUTH] JWT_SECRET is not configured")
+
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status": http.StatusInternalServerError,
+				"error":  "authentication service is not configured",
+			})
+			c.Abort()
+			return
+		}
+
 		token, err := jwt.Parse(
 			tokenString,
 			func(token *jwt.Token) (interface{}, error) {
-
-				// CARDex uses HS256 exclusively.
 				if token.Method != jwt.SigningMethodHS256 {
 					return nil, errors.New("invalid signing method")
 				}
 
-				return []byte(os.Getenv("JWT_SECRET")), nil
+				return []byte(jwtSecret), nil
 			},
+			jwt.WithValidMethods([]string{
+				jwt.SigningMethodHS256.Alg(),
+			}),
 		)
 
-		if err != nil || !token.Valid {
+		if err != nil || token == nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"status": http.StatusUnauthorized,
 				"error":  "invalid token",
@@ -83,13 +97,44 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		// --------------------------------------------------
-		// 2. Hash the raw JWT
+		// 2. Extract authenticated user ID
+		// --------------------------------------------------
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status": http.StatusUnauthorized,
+				"error":  "invalid token claims",
+			})
+			c.Abort()
+			return
+		}
+
+		userIDFloat, ok := claims["user_id"].(float64)
+
+		if !ok ||
+			userIDFloat <= 0 ||
+			userIDFloat != float64(int(userIDFloat)) {
+
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status": http.StatusUnauthorized,
+				"error":  "invalid user identity",
+			})
+			c.Abort()
+			return
+		}
+
+		userID := int(userIDFloat)
+
+		// --------------------------------------------------
+		// 3. Hash the raw JWT
 		// --------------------------------------------------
 
 		tokenHash := hash.HashToken(tokenString)
 
 		// --------------------------------------------------
-		// 3. Check server-side session
+		// 4. Check server-side session
 		// --------------------------------------------------
 
 		sessionExists, err := repository.SessionExists(
@@ -116,7 +161,7 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		// --------------------------------------------------
-		// 4. Retrieve idle timeout configuration
+		// 5. Retrieve idle timeout configuration
 		// --------------------------------------------------
 
 		idleTimeoutStr, err := repository.GetSystemParameter(
@@ -145,7 +190,7 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		// --------------------------------------------------
-		// 5. Check session inactivity
+		// 6. Check session inactivity
 		// --------------------------------------------------
 
 		idle, err := repository.IsSessionIdle(
@@ -165,7 +210,10 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 
 		if idle {
 			// Delete the expired session.
-			if err := repository.DeleteSessionByToken(db, tokenHash); err != nil {
+			if err := repository.DeleteSessionByToken(
+				db,
+				tokenHash,
+			); err != nil {
 				log.Printf(
 					"[SESSION EXPIRATION] Failed to delete expired session: %v",
 					err,
@@ -186,15 +234,12 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 				)
 
 				if moduleErr == nil {
-					description := "User session expired due to inactivity"
-
-					// Record the session expiration.
 					auditErr = repository.InsertAuditLog(
 						db,
 						&userID,
 						actionID,
 						moduleID,
-						description,
+						"User session expired due to inactivity",
 						c.ClientIP(),
 						c.Request.UserAgent(),
 					)
@@ -219,7 +264,7 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		// --------------------------------------------------
-		// 6. Update session activity
+		// 7. Update session activity
 		// --------------------------------------------------
 
 		if err := repository.UpdateSessionActivity(
@@ -233,34 +278,6 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-
-		// --------------------------------------------------
-		// 7. Extract authenticated user ID
-		// --------------------------------------------------
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-
-		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"status": http.StatusUnauthorized,
-				"error":  "invalid token claims",
-			})
-			c.Abort()
-			return
-		}
-
-		userIDFloat, ok := claims["user_id"].(float64)
-
-		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"status": http.StatusUnauthorized,
-				"error":  "invalid user identity",
-			})
-			c.Abort()
-			return
-		}
-
-		userID := int(userIDFloat)
 
 		// --------------------------------------------------
 		// 8. Store authentication context
