@@ -275,6 +275,7 @@ type ReservationQueueItem struct {
 	RoleID              int        `json:"role_id" gorm:"column:role_id"`
 	Role                string     `json:"role" gorm:"column:role"`
 	InstitutionalID     *string    `json:"institutional_id" gorm:"column:institutional_id"`
+	IsCopyAvailable     bool       `json:"is_copy_available" gorm:"column:is_copy_available"`
 }
 
 func GetReservationQueue(db *gorm.DB) ([]ReservationQueueItem, error) {
@@ -323,7 +324,25 @@ func GetReservationQueue(db *gorm.DB) ([]ReservationQueueItem, error) {
 			r.reason,
 			r.queue_position,
 			r.expiry_date,
-			r.created_at
+			r.created_at,
+
+			CASE
+				WHEN r.status = 'PENDING' THEN EXISTS (
+					SELECT 1
+					FROM book_copy bc
+					WHERE bc.book_id = r.book_id
+					  AND bc.copy_status = 'AVAILABLE'
+				)
+
+				WHEN r.status = 'NOTIFIED' THEN EXISTS (
+					SELECT 1
+					FROM book_copy bc
+					WHERE bc.copy_id = r.copy_id
+					  AND bc.copy_status = 'RESERVED'
+				)
+
+				ELSE FALSE
+			END AS is_copy_available
 
 		FROM reservation r
 		JOIN book b
