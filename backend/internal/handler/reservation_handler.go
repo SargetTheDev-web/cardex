@@ -54,9 +54,10 @@ func reservationError(c *gin.Context, err error) {
 	case errors.Is(err, service.ErrReservationConflict),
 		errors.Is(err, service.ErrNoAvailableCopy),
 		errors.Is(err, service.ErrCopyUnavailable),
-		errors.Is(err, service.ErrActiveLoanForBook):
+		errors.Is(err, service.ErrActiveLoanForBook),
+		errors.Is(err, service.ErrActiveOverdueLoan):
 		c.JSON(http.StatusConflict, gin.H{
-			"status":  "error",
+			"status":  409,
 			"message": err.Error(),
 		})
 	case errors.Is(err, service.ErrReservationLimitReached):

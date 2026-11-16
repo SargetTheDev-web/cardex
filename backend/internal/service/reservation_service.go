@@ -642,6 +642,26 @@ func FulfillReservation(
 			return ErrBorrowerNotEligible
 		}
 
+		// Prevent borrowers from fulfilling reservations while they
+		// have an overdue loan.
+		var hasOverdueLoan bool
+
+		if err := tx.Raw(`
+	SELECT EXISTS (
+		SELECT 1
+		FROM loan AS l
+		WHERE l.user_id = ?
+		  AND l.status = 'BORROWED'
+		  AND l.due_date < CURRENT_DATE
+	)
+`, reservation.UserID).Scan(&hasOverdueLoan).Error; err != nil {
+			return fmt.Errorf("check existing overdue loans: %w", err)
+		}
+
+		if hasOverdueLoan {
+			return ErrActiveOverdueLoan
+		}
+
 		if err := enforceBorrowingLimit(
 			tx,
 			reservation.UserID,
