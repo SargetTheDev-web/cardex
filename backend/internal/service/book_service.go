@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	model "backend/internal/models"
 	"backend/internal/repository"
@@ -33,6 +34,19 @@ func validateBook(book *model.Book) error {
 			book.ISBN = nil
 		} else {
 			book.ISBN = &value
+		}
+	}
+
+	currentYear := time.Now().Year()
+
+	if book.PublicationYear != nil {
+		if *book.PublicationYear <= 0 ||
+			*book.PublicationYear > currentYear {
+			return fmt.Errorf(
+				"%w: publication year must be between 1 and %d",
+				ErrInvalidBook,
+				currentYear,
+			)
 		}
 	}
 
