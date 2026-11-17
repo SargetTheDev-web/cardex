@@ -2,6 +2,7 @@ package repository
 
 import (
 	model "backend/internal/models"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -16,11 +17,7 @@ func GetUserByIdentifier(
 
 	err := db.
 		Table(`"user"`).
-		Where(
-			"email_address = ? OR username = ?",
-			identifier,
-			identifier,
-		).
+		Where("LOWER(email_address) = LOWER(?)", strings.TrimSpace(identifier)).
 		First(&user).Error
 
 	if err != nil {
