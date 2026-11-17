@@ -137,17 +137,18 @@ func Login(
 			"account login not allowed",
 		)
 	}
+	/*
 
-	// --------------------------------------------------
-	// 5. Check account expiration
-	// --------------------------------------------------
+		// --------------------------------------------------
+		// 5. Check account expiration
+		// --------------------------------------------------
 
-	if !user.ExpirationDate.IsZero() &&
-		time.Now().UTC().After(user.ExpirationDate.UTC()) {
+		if !user.ExpirationDate.IsZero() &&
+			time.Now().UTC().After(user.ExpirationDate.UTC()) {
 
-		return nil, errors.New("account expired")
-	}
-
+			return nil, errors.New("account expired")
+		}
+	*/
 	// --------------------------------------------------
 	// 6. Verify password
 	// --------------------------------------------------
