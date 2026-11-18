@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
 
     embedding_model: str = (
-        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+        "sentence-transformers/all-MiniLM-L6-v2"
     )
 
     model_config = SettingsConfigDict(
