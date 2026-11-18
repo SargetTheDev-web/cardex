@@ -179,8 +179,14 @@ func SearchPublicBooks(
 		return nil, fmt.Errorf("read AI service response: %w", err)
 	}
 
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("AI service returned HTTP %d", resp.StatusCode)
+	if resp.StatusCode < http.StatusOK ||
+		resp.StatusCode >= http.StatusMultipleChoices {
+
+		return nil, fmt.Errorf(
+			"AI service returned HTTP %d: %s",
+			resp.StatusCode,
+			strings.TrimSpace(string(responseBody)),
+		)
 	}
 
 	var aiResponse aiHybridSearchResponse
