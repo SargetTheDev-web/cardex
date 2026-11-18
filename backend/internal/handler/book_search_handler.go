@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -57,7 +58,12 @@ func PublicBookSearchHandler(db *gorm.DB) gin.HandlerFunc {
 			request.TopK,
 		)
 		if err != nil {
-			// Do not expose internal database or AI service details.
+			log.Printf(
+				"[BOOK_SEARCH] Search failed | query=%q | error=%v",
+				request.Query,
+				err,
+			)
+
 			c.JSON(http.StatusBadGateway, gin.H{
 				"status":  http.StatusBadGateway,
 				"message": "Book search service is temporarily unavailable",
