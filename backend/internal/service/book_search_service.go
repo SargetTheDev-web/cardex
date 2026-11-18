@@ -165,7 +165,7 @@ func SearchPublicBooks(
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{
-		Timeout: 90 * time.Second,
+		Timeout: 30 * time.Second,
 	}
 
 	resp, err := client.Do(req)
