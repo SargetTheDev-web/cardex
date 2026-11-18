@@ -1,6 +1,6 @@
-
 fastapi
 uvicorn[standard]
 pydantic-settings
 sentence-transformers
 scikit-learn
+numpy>=1.26.0

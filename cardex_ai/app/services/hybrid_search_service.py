@@ -1,18 +1,30 @@
 
-import re
+from __future__ import annotations
 
-from sentence_transformers import util
+import hashlib
+import re
+import threading
+
+from collections import OrderedDict
+
+import numpy as np
 
 from app.schemas.hybrid_search import (
     SearchDocument,
     SearchResult,
 )
 
+from app.services.embedding_service import EmbeddingService
+
 
 class HybridSearchService:
     """
-    Hybrid search using keyword matching and
-    multilingual semantic similarity.
+    Hybrid search using:
+    - 40% keyword relevance
+    - 60% semantic similarity
+
+    Document embeddings are cached to avoid repeatedly
+    processing unchanged documents.
     """
 
     STOP_WORDS = {
@@ -31,8 +43,25 @@ class HybridSearchService:
         "aklat", "libro",
     }
 
-    def __init__(self, embedding_service) -> None:
+    MAX_CACHE_SIZE = 10_000
+
+    def __init__(
+        self,
+        embedding_service: EmbeddingService,
+    ) -> None:
+
         self.embedding_service = embedding_service
+
+        # Key: (document_id, content_hash)
+        # Value: normalized NumPy embedding
+        self._embedding_cache: OrderedDict[
+            tuple[int, str],
+            np.ndarray
+        ] = OrderedDict()
+
+        # Prevent concurrent cache updates and duplicate
+        # embedding generation for the same batch.
+        self._cache_lock = threading.RLock()
 
     def search(
         self,
@@ -41,26 +70,43 @@ class HybridSearchService:
         top_k: int = 5,
     ) -> list[SearchResult]:
 
-        query_embedding = self.embedding_service.generate(query)
-        query_keywords = self._extract_keywords(query)
-        results = []
+        if not documents:
+            return []
 
-        for document in documents:
-            document_text = f"{document.title}. {document.content}"
+        query = query.strip()
+
+        if not query:
+            return []
+
+        # Generate only one query embedding.
+        query_embedding = self.embedding_service.generate(query)
+
+        # Retrieve cached document embeddings or generate
+        # embeddings for uncached/modified documents.
+        document_embeddings = self._get_document_embeddings(
+            documents
+        )
+
+        # Since both query and document embeddings are normalized,
+        # their dot product is cosine similarity.
+        semantic_scores = document_embeddings @ query_embedding
+
+        query_keywords = self._extract_keywords(query)
+
+        results: list[SearchResult] = []
+
+        for index, document in enumerate(documents):
+
+            document_text = (
+                f"{document.title}. {document.content}"
+            )
 
             keyword_score = self._keyword_score(
                 query_keywords,
                 document_text,
             )
 
-            document_embedding = self.embedding_service.generate(
-                document_text
-            )
-
-            semantic_score = util.cos_sim(
-                query_embedding,
-                document_embedding,
-            ).item()
+            semantic_score = float(semantic_scores[index])
 
             hybrid_score = (
                 (keyword_score * 0.40)
@@ -85,8 +131,92 @@ class HybridSearchService:
 
         return results[:top_k]
 
-    def _extract_keywords(self, query: str) -> set[str]:
-        words = re.findall(r"\b[^\W_]+\b", query.casefold())
+    def _get_document_embeddings(
+        self,
+        documents: list[SearchDocument],
+    ) -> np.ndarray:
+        """
+        Return embeddings for all documents.
+
+        Existing embeddings are reused.
+        Missing or modified documents are encoded together.
+        """
+
+        with self._cache_lock:
+
+            document_keys: list[tuple[int, str]] = []
+            missing_keys: list[tuple[int, str]] = []
+            missing_texts: list[str] = []
+
+            for document in documents:
+
+                document_text = (
+                    f"{document.title}. {document.content}"
+                )
+
+                content_hash = hashlib.sha256(
+                    document_text.encode("utf-8")
+                ).hexdigest()
+
+                cache_key = (
+                    document.document_id,
+                    content_hash,
+                )
+
+                document_keys.append(cache_key)
+
+                if cache_key in self._embedding_cache:
+
+                    # Mark recently accessed entries as most recent.
+                    self._embedding_cache.move_to_end(cache_key)
+
+                else:
+
+                    missing_keys.append(cache_key)
+                    missing_texts.append(document_text)
+
+            # Encode every missing document in one batch.
+            if missing_texts:
+
+                new_embeddings = (
+                    self.embedding_service.generate_many(
+                        missing_texts
+                    )
+                )
+
+                for key, embedding in zip(
+                    missing_keys,
+                    new_embeddings,
+                ):
+
+                    self._embedding_cache[key] = embedding
+
+                    self._embedding_cache.move_to_end(key)
+
+                # Remove oldest entries when cache exceeds its limit.
+                while (
+                    len(self._embedding_cache)
+                    > self.MAX_CACHE_SIZE
+                ):
+                    self._embedding_cache.popitem(last=False)
+
+            # Reconstruct embeddings in the original document order.
+            return np.stack(
+                [
+                    self._embedding_cache[key]
+                    for key in document_keys
+                ]
+            )
+
+    def _extract_keywords(
+        self,
+        query: str,
+    ) -> set[str]:
+
+        words = re.findall(
+            r"\b[^\W_]+\b",
+            query.casefold(),
+        )
 
         return {
             word
@@ -110,6 +240,8 @@ class HybridSearchService:
             )
         )
 
-        matches = query_keywords.intersection(document_words)
+        matches = query_keywords.intersection(
+            document_words
+        )
 
         return len(matches) / len(query_keywords)
