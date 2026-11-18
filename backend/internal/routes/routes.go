@@ -502,6 +502,12 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.AttendanceReportHandler(db),
 	)
 
+	protected.GET(
+		"/reports/attendance-by-course",
+		require("DASHBOARD_VIEW_ANALYTICS"),
+		handler.AttendanceCourseReportHandler(db),
+	)
+
 	librarian.GET(
 		"/get-all-notifications",
 		handler.GetAllNotificationsHandler(db),
