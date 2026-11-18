@@ -30,91 +30,123 @@ func GetAttendancePatronReport(
 	var rows []AttendancePatronReportRow
 
 	query := `
-		WITH selected_visits AS (
+		WITH daily_scans AS (
 			SELECT
-				ci.id,
-				ci.user_id,
+				d.user_id,
+				d.campus,
+				d.attendance_date,
 
-				CASE
-					WHEN next_scan.scan_type = 'CHECK_OUT'
-					THEN GREATEST(
-						0,
-						FLOOR(
-							EXTRACT(
-								EPOCH FROM (
-									next_scan.scanned_at - ci.scanned_at
-								)
-							) / 60
-						)
-					)::BIGINT
-					ELSE 0
-				END AS duration_minutes
+				al.id,
+				al.scan_type,
+				al.scanned_at,
 
-			FROM attendance_logs ci
+				LEAD(al.scan_type) OVER (
+					PARTITION BY
+						d.user_id,
+						d.campus,
+						d.attendance_date
+					ORDER BY
+						al.scanned_at,
+						al.id
+				) AS next_scan_type,
 
-			LEFT JOIN LATERAL (
-				SELECT
-					al.scan_type,
-					al.scanned_at
+				LEAD(al.scanned_at) OVER (
+					PARTITION BY
+						d.user_id,
+						d.campus,
+						d.attendance_date
+					ORDER BY
+						al.scanned_at,
+						al.id
+				) AS next_scanned_at
 
-				FROM attendance_logs al
+			FROM attendance_days d
 
-				WHERE
-					al.user_id = ci.user_id
-					AND al.campus = ci.campus
-					AND (al.scanned_at, al.id) > (ci.scanned_at, ci.id)
-					AND al.scanned_at < (
-						(
-							DATE(
-								ci.scanned_at AT TIME ZONE 'Asia/Manila'
-							) + INTERVAL '1 day'
-						) AT TIME ZONE 'Asia/Manila'
-					)
-
-				ORDER BY al.scanned_at ASC, al.id ASC
-				LIMIT 1
-			) next_scan ON TRUE
-
-			WHERE
-				ci.scan_type = 'CHECK_IN'
-
-				AND ci.scanned_at >= (
-					?::date::timestamp AT TIME ZONE 'Asia/Manila'
-				)
-
-				AND ci.scanned_at < (
-					(?::date + INTERVAL '1 day')
+			INNER JOIN attendance_logs al
+				ON al.user_id = d.user_id
+				AND al.campus = d.campus
+				AND al.scanned_at >= (
+					d.attendance_date::timestamp
 					AT TIME ZONE 'Asia/Manila'
 				)
+				AND al.scanned_at < (
+					(d.attendance_date + 1)::timestamp
+					AT TIME ZONE 'Asia/Manila'
+				)
+
+			WHERE
+				d.attendance_date BETWEEN ?::date AND ?::date
+		),
+
+		daily_totals AS (
+			SELECT
+				user_id,
+				campus,
+				attendance_date,
+
+				COALESCE(
+					SUM(
+						GREATEST(
+							0,
+							FLOOR(
+								EXTRACT(
+									EPOCH FROM (
+										next_scanned_at - scanned_at
+									)
+								) / 60
+							)
+						)::BIGINT
+					) FILTER (
+						WHERE
+							scan_type = 'CHECK_IN'
+							AND next_scan_type = 'CHECK_OUT'
+					),
+					0
+				) AS duration_minutes
+
+			FROM daily_scans
+
+			GROUP BY
+				user_id,
+				campus,
+				attendance_date
 		),
 
 		patron_totals AS (
 			SELECT
-				user_id,
+				d.user_id,
+
 				COUNT(*) AS total_visits,
-				SUM(duration_minutes) AS total_stay_minutes,
+
+				SUM(
+					COALESCE(dt.duration_minutes, 0)
+				) AS total_stay_minutes,
 
 				ROUND(
-					AVG(duration_minutes)
+					AVG(
+						COALESCE(dt.duration_minutes, 0)
+					)
 				)::BIGINT AS avg_stay_minutes
 
-			FROM selected_visits
+			FROM attendance_days d
 
-			GROUP BY user_id
+			LEFT JOIN daily_totals dt
+				ON dt.user_id = d.user_id
+				AND dt.campus = d.campus
+				AND dt.attendance_date = d.attendance_date
+
+			WHERE
+				d.attendance_date BETWEEN ?::date AND ?::date
+
+			GROUP BY d.user_id
 		),
 
 		latest_visits AS (
 			SELECT
 				user_id,
-				MAX(
-					DATE(
-						scanned_at AT TIME ZONE 'Asia/Manila'
-					)
-				) AS last_visit_date
+				MAX(attendance_date) AS last_visit_date
 
-			FROM attendance_logs
-
-			WHERE scan_type = 'CHECK_IN'
+			FROM attendance_days
 
 			GROUP BY user_id
 		)
@@ -196,6 +228,8 @@ func GetAttendancePatronReport(
 
 	err := db.Raw(
 		query,
+		fromDate,
+		toDate,
 		fromDate,
 		toDate,
 	).Scan(&rows).Error
