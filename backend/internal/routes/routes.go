@@ -510,7 +510,14 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 
 	protected.GET(
 		"/reports/attendance/top-students",
+		require("DASHBOARD_VIEW_ANALYTICS"),
 		handler.AttendancePatronReportHandler(db),
+	)
+
+	protected.GET(
+		"/reports/users",
+		require("DASHBOARD_VIEW_ANALYTICS"),
+		handler.GetUserReportHandler(db),
 	)
 
 	librarian.GET(
