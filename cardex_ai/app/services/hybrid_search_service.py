@@ -19,9 +19,12 @@ from app.services.embedding_service import EmbeddingService
 
 class HybridSearchService:
     """
-    Hybrid search using:
-    - 40% keyword relevance
-    - 60% semantic similarity
+    Hybrid search combining:
+    - 80% semantic similarity
+    - 20% keyword relevance
+
+    Keyword relevance considers both title and content,
+    prioritizing title matches.
 
     Document embeddings are cached to avoid repeatedly
     processing unchanged documents.
@@ -33,6 +36,7 @@ class HybridSearchService:
         "from", "in", "of", "on", "to", "with",
         "me", "find", "show", "give", "get",
         "book", "books", "document", "documents",
+        "how",
 
         # Filipino / Tagalog
         "ang", "ng", "mga", "sa", "na", "at",
@@ -59,8 +63,7 @@ class HybridSearchService:
             np.ndarray
         ] = OrderedDict()
 
-        # Prevent concurrent cache updates and duplicate
-        # embedding generation for the same batch.
+        # Protect cache reads, writes, and embedding generation.
         self._cache_lock = threading.RLock()
 
     def search(
@@ -78,17 +81,16 @@ class HybridSearchService:
         if not query:
             return []
 
-        # Generate only one query embedding.
+        # Generate one embedding for the search query.
         query_embedding = self.embedding_service.generate(query)
 
-        # Retrieve cached document embeddings or generate
-        # embeddings for uncached/modified documents.
+        # Retrieve cached embeddings or generate missing ones.
         document_embeddings = self._get_document_embeddings(
             documents
         )
 
-        # Since both query and document embeddings are normalized,
-        # their dot product is cosine similarity.
+        # Both embeddings are normalized.
+        # Their dot product is cosine similarity.
         semantic_scores = document_embeddings @ query_embedding
 
         query_keywords = self._extract_keywords(query)
@@ -97,20 +99,18 @@ class HybridSearchService:
 
         for index, document in enumerate(documents):
 
-            document_text = (
-                f"{document.title}. {document.content}"
-            )
-
             keyword_score = self._keyword_score(
-                query_keywords,
-                document_text,
+                query_keywords=query_keywords,
+                title=document.title,
+                content=document.content,
             )
 
             semantic_score = float(semantic_scores[index])
 
+            # Semantic relevance receives greater weight.
             hybrid_score = (
-                (keyword_score * 0.40)
-                + (semantic_score * 0.60)
+                (keyword_score * 0.20)
+                + (semantic_score * 0.80)
             )
 
             results.append(
@@ -124,9 +124,12 @@ class HybridSearchService:
                 )
             )
 
+        # Sort by relevance, then document ID for deterministic ties.
         results.sort(
-            key=lambda result: result.hybrid_score,
-            reverse=True,
+            key=lambda result: (
+                -result.hybrid_score,
+                result.document_id,
+            )
         )
 
         return results[:top_k]
@@ -175,7 +178,7 @@ class HybridSearchService:
                     missing_keys.append(cache_key)
                     missing_texts.append(document_text)
 
-            # Encode every missing document in one batch.
+            # Generate embeddings for uncached documents in one batch.
             if missing_texts:
 
                 new_embeddings = (
@@ -227,21 +230,52 @@ class HybridSearchService:
     def _keyword_score(
         self,
         query_keywords: set[str],
-        document_text: str,
+        title: str,
+        content: str,
     ) -> float:
+        """
+        Calculate keyword relevance.
+
+        Title matches: 75%
+        Content matches: 25%
+        """
 
         if not query_keywords:
             return 0.0
 
-        document_words = set(
+        title_words = set(
             re.findall(
                 r"\b[^\W_]+\b",
-                document_text.casefold(),
+                title.casefold(),
             )
         )
 
-        matches = query_keywords.intersection(
-            document_words
+        content_words = set(
+            re.findall(
+                r"\b[^\W_]+\b",
+                content.casefold(),
+            )
         )
 
-        return len(matches) / len(query_keywords)
+        title_matches = query_keywords.intersection(
+            title_words
+        )
+
+        content_matches = query_keywords.intersection(
+            content_words
+        )
+
+        title_score = (
+            len(title_matches) / len(query_keywords)
+        )
+
+        content_score = (
+            len(content_matches) / len(query_keywords)
+        )
+
+        keyword_score = (
+            (title_score * 0.75)
+            + (content_score * 0.25)
+        )
+
+        return min(keyword_score, 1.0)
