@@ -508,6 +508,11 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.AttendanceCourseReportHandler(db),
 	)
 
+	protected.GET(
+		"/reports/attendance/top-students",
+		handler.AttendancePatronReportHandler(db),
+	)
+
 	librarian.GET(
 		"/get-all-notifications",
 		handler.GetAllNotificationsHandler(db),
