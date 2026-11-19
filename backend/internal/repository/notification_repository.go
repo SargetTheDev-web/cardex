@@ -246,9 +246,8 @@ func getNotificationResponses(
 }
 
 // GetAllNotifications returns all notifications across all users.
-// For referenced notifications, identity fields represent the person
-// associated with the referenced record. Otherwise, they represent
-// the notification recipient.
+// For PROFILE_CHANGE notifications, identity fields represent
+// the applicant. Otherwise, they represent the notification recipient.
 func GetAllNotifications(
 	db *gorm.DB,
 ) ([]model.NotificationResponse, error) {
@@ -264,29 +263,30 @@ func GetAllNotifications(
 			n.user_id,
 
 			COALESCE(
-    NULLIF(TRIM(CONCAT_WS(' ',
-        NULLIF(pcr.first_name, ''),
-        NULLIF(pcr.middle_name, ''),
-        NULLIF(pcr.last_name, ''),
-        NULLIF(pcr.suffix_extension, '')
-    )), ''),
-    NULLIF(TRIM(CONCAT_WS(' ',
-        NULLIF(ref_up.first_name, ''),
-        NULLIF(ref_up.middle_name, ''),
-        NULLIF(ref_up.last_name, ''),
-        NULLIF(ref_up.suffix_extension, '')
-    )), ''),
-    NULLIF(TRIM(CONCAT_WS(' ',
-        NULLIF(recipient_up.first_name, ''),
-        NULLIF(recipient_up.middle_name, ''),
-        NULLIF(recipient_up.last_name, ''),
-        NULLIF(recipient_up.suffix_extension, '')
-    )), '')
-) AS name,
+				NULLIF(TRIM(CONCAT_WS(' ',
+					NULLIF(pcr.first_name, ''),
+					NULLIF(pcr.middle_name, ''),
+					NULLIF(pcr.last_name, ''),
+					NULLIF(pcr.suffix_extension, '')
+				)), ''),
+				NULLIF(TRIM(CONCAT_WS(' ',
+					NULLIF(profile_up.first_name, ''),
+					NULLIF(profile_up.middle_name, ''),
+					NULLIF(profile_up.last_name, ''),
+					NULLIF(profile_up.suffix_extension, '')
+				)), ''),
+				NULLIF(TRIM(CONCAT_WS(' ',
+					NULLIF(recipient_up.first_name, ''),
+					NULLIF(recipient_up.middle_name, ''),
+					NULLIF(recipient_up.last_name, ''),
+					NULLIF(recipient_up.suffix_extension, '')
+				)), '')
 			) AS name,
 
-			COALESCE(profile_ur.role_code, recipient_ur.role_code)
-				AS role_code,
+			COALESCE(
+				profile_ur.role_code,
+				recipient_ur.role_code
+			) AS role_code,
 
 			COALESCE(
 				profile_up.institutional_id,
@@ -302,6 +302,7 @@ func GetAllNotifications(
 			n.reference_type,
 			n.reference_id
 		`).
+
 		// Notification recipient.
 		Joins(`JOIN "user" recipient_u
 			ON recipient_u.user_id = n.user_id`).
