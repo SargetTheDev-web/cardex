@@ -12,12 +12,13 @@ func GetUserByIdentifier(
 	db *gorm.DB,
 	identifier string,
 ) (*model.User, error) {
-
 	var user model.User
+
+	identifier = strings.ToLower(strings.TrimSpace(identifier))
 
 	err := db.
 		Table(`"user"`).
-		Where("LOWER(email_address) = LOWER(?)", strings.TrimSpace(identifier)).
+		Where("LOWER(email_address) = ?", identifier).
 		First(&user).Error
 
 	if err != nil {
