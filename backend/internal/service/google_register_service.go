@@ -1,5 +1,3 @@
-// internal/service/google_register_service.go
-
 package service
 
 import (
@@ -39,15 +37,23 @@ func CompleteGoogleRegistration(
 	db *gorm.DB,
 	input GoogleRegistrationInput,
 ) error {
-	// Normalize fields.
+
+	// --------------------------------------------------
+	// Normalize input
+	// --------------------------------------------------
+
 	input.IDToken = strings.TrimSpace(input.IDToken)
 	input.Username = strings.TrimSpace(input.Username)
 	input.Role = strings.ToUpper(strings.TrimSpace(input.Role))
 	input.InstitutionalID = strings.TrimSpace(input.InstitutionalID)
-	input.LastName = strings.TrimSpace(input.LastName)
-	input.FirstName = strings.TrimSpace(input.FirstName)
+	input.LastName = strings.ToUpper(strings.TrimSpace(input.LastName))
+	input.FirstName = strings.ToUpper(strings.TrimSpace(input.FirstName))
 	input.Course = strings.TrimSpace(input.Course)
 	input.PIN = strings.TrimSpace(input.PIN)
+
+	if db == nil {
+		return errors.New("database connection is required")
+	}
 
 	if input.IDToken == "" {
 		return errors.New("Google ID token is required")
@@ -56,37 +62,57 @@ func CompleteGoogleRegistration(
 	if input.Username == "" {
 		return errors.New("username is required")
 	}
+
 	if input.InstitutionalID == "" {
 		return errors.New("Student/Faculty ID is required")
 	}
+
 	if input.FirstName == "" || input.LastName == "" {
 		return errors.New("first name and last name are required")
 	}
 
+	// --------------------------------------------------
+	// Validate requested role
+	// --------------------------------------------------
+
 	var requestedRoleID int
+
 	switch input.Role {
 	case "STUDENT":
 		requestedRoleID = RoleStudent
+
 		if input.Course == "" {
 			return errors.New("course is required for student registration")
 		}
+
 	case "FACULTY":
 		requestedRoleID = RoleFaculty
 		input.Course = ""
+
 	default:
-		return errors.New("Role must be student or faculty")
+		return errors.New("role must be student or faculty")
 	}
+
+	// --------------------------------------------------
+	// Validate PIN
+	// --------------------------------------------------
 
 	if len(input.PIN) != 6 {
 		return errors.New("PIN must be exactly 6 digits")
 	}
+
 	for _, char := range input.PIN {
 		if char < '0' || char > '9' {
 			return errors.New("PIN must contain only digits")
 		}
 	}
 
+	// --------------------------------------------------
+	// Validate Google ID token
+	// --------------------------------------------------
+
 	clientID := strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID"))
+
 	if clientID == "" {
 		return errors.New("Google sign-in is not configured")
 	}
@@ -101,34 +127,60 @@ func CompleteGoogleRegistration(
 	}
 
 	subject, _ := payload.Claims["sub"].(string)
-	email, _ := payload.Claims["email"].(string)
+	emailAddress, _ := payload.Claims["email"].(string)
 	emailVerified, _ := payload.Claims["email_verified"].(bool)
 	picture, _ := payload.Claims["picture"].(string)
 
 	subject = strings.TrimSpace(subject)
-	email = strings.ToLower(strings.TrimSpace(email))
+	emailAddress = strings.ToLower(strings.TrimSpace(emailAddress))
+	picture = strings.TrimSpace(picture)
 
-	if subject == "" || email == "" || !emailVerified {
-		return errors.New("Google must provide a verified email and valid subject")
+	if subject == "" || emailAddress == "" || !emailVerified {
+		return errors.New(
+			"Google must provide a verified email and valid subject",
+		)
 	}
 
-	var middleName, suffix, mobile, profileImage *string
+	// --------------------------------------------------
+	// Normalize optional profile fields
+	// --------------------------------------------------
 
-	if input.MiddleName != nil && strings.TrimSpace(*input.MiddleName) != "" {
-		value := strings.TrimSpace(*input.MiddleName)
-		middleName = &value
+	var middleName *string
+	var suffix *string
+	var mobile *string
+	var profileImage *string
+
+	if input.MiddleName != nil {
+		value := strings.ToUpper(strings.TrimSpace(*input.MiddleName))
+
+		if value != "" {
+			middleName = &value
+		}
 	}
-	if input.SuffixExtension != nil && strings.TrimSpace(*input.SuffixExtension) != "" {
+
+	if input.SuffixExtension != nil {
 		value := strings.TrimSpace(*input.SuffixExtension)
-		suffix = &value
+
+		if value != "" {
+			suffix = &value
+		}
 	}
-	if input.MobileNumber != nil && strings.TrimSpace(*input.MobileNumber) != "" {
+
+	if input.MobileNumber != nil {
 		value := strings.TrimSpace(*input.MobileNumber)
-		mobile = &value
+
+		if value != "" {
+			mobile = &value
+		}
 	}
-	if strings.TrimSpace(picture) != "" {
+
+	if picture != "" {
 		profileImage = &picture
 	}
+
+	// --------------------------------------------------
+	// Hash PIN
+	// --------------------------------------------------
 
 	hashedPIN, err := hash.HashPassword(input.PIN)
 	if err != nil {
@@ -138,50 +190,94 @@ func CompleteGoogleRegistration(
 	provider := "google"
 	providerID := subject
 
+	// --------------------------------------------------
+	// Database transaction
+	// --------------------------------------------------
+
 	return db.Transaction(func(tx *gorm.DB) error {
-		// Prevent duplicate registration for an already linked identity.
-		_, err := repository.GetUserBySSO(tx, provider, providerID)
+
+		// ----------------------------------------------
+		// Check Google identity
+		// ----------------------------------------------
+
+		_, err := repository.GetUserBySSO(
+			tx,
+			provider,
+			providerID,
+		)
+
 		if err == nil {
-			return errors.New("This Google account is already registered")
+			return errors.New("this Google account is already registered")
 		}
+
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("failed to check Google account")
 		}
 
-		// Never auto-link an existing account based on email.
-		_, err = repository.GetUserByIdentifier(tx, email)
+		// ----------------------------------------------
+		// Check email
+		// ----------------------------------------------
+
+		_, err = repository.GetUserByIdentifier(
+			tx,
+			emailAddress,
+		)
+
 		if err == nil {
-			return errors.New("Email already belongs to a CARDex account; account linking is required")
+			return errors.New(
+				"email already belongs to a CARDex account; account linking is required",
+			)
 		}
+
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("failed to check email")
 		}
 
-		_, err = repository.GetUserByIdentifier(tx, input.Username)
-		if err == nil {
-			return errors.New("Email address already exist")
-		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("failed to check username")
+		// ----------------------------------------------
+		// Check username
+		// ----------------------------------------------
+
+		usernameExists, err := repository.UsernameExists(
+			tx,
+			input.Username,
+			0,
+		)
+
+		if err != nil {
+			return errors.New("failed to validate username")
 		}
 
-		exists, err := repository.InstitutionalIDExists(
+		if usernameExists {
+			return errors.New("username already exists")
+		}
+
+		// ----------------------------------------------
+		// Check institutional ID
+		// ----------------------------------------------
+
+		institutionalIDExists, err := repository.InstitutionalIDExists(
 			tx,
 			input.InstitutionalID,
 			0,
 		)
+
 		if err != nil {
-			return errors.New("Failed to validate institutional ID")
+			return errors.New("failed to validate institutional ID")
 		}
-		if exists {
+
+		if institutionalIDExists {
 			return errors.New("Student/Faculty ID already exists")
 		}
+
+		// ----------------------------------------------
+		// Create CARDex user
+		// ----------------------------------------------
 
 		expirationDate := time.Now().AddDate(1, 0, 0)
 
 		user := model.User{
 			Username:       input.Username,
-			EmailAddress:   email,
+			EmailAddress:   emailAddress,
 			StatusID:       3,
 			RoleID:         RoleGuest,
 			ExpirationDate: expirationDate,
@@ -192,6 +288,10 @@ func CompleteGoogleRegistration(
 		if err := repository.CreateUser(tx, &user); err != nil {
 			return errors.New("failed to create CARDex account")
 		}
+
+		// ----------------------------------------------
+		// Create pending profile change request
+		// ----------------------------------------------
 
 		profileChange := model.ProfileChangeRequest{
 			UserID:          user.UserID,
@@ -218,7 +318,10 @@ func CompleteGoogleRegistration(
 			return errors.New("failed to create pending profile")
 		}
 
-		// Build the recipient's complete name for email delivery.
+		// ----------------------------------------------
+		// Build recipient name
+		// ----------------------------------------------
+
 		nameParts := []string{
 			input.FirstName,
 		}
@@ -235,17 +338,39 @@ func CompleteGoogleRegistration(
 
 		recipientName := strings.Join(nameParts, " ")
 
-		// Queue the registration confirmation email in the same transaction.
-		details, err := json.Marshal([]model.EmailOutboxDetail{
-			{Label: "Username", Value: user.Username},
-			{Label: "Requested Role", Value: input.Role},
-			{Label: "Status", Value: "Pending Approval"},
-		})
+		// ----------------------------------------------
+		// Prepare email details
+		// ----------------------------------------------
+
+		details, err := json.Marshal(
+			[]model.EmailOutboxDetail{
+				{
+					Label: "Username",
+					Value: user.Username,
+				},
+				{
+					Label: "Requested Role",
+					Value: input.Role,
+				},
+				{
+					Label: "Status",
+					Value: "Pending Approval",
+				},
+			},
+		)
+
 		if err != nil {
-			return fmt.Errorf("marshal registration email details: %w", err)
+			return fmt.Errorf(
+				"marshal registration email details: %w",
+				err,
+			)
 		}
 
-		email := model.EmailOutbox{
+		// ----------------------------------------------
+		// Queue registration email
+		// ----------------------------------------------
+
+		outboxEmail := model.EmailOutbox{
 			RecipientEmail: user.EmailAddress,
 			RecipientName:  recipientName,
 			Subject:        "CARDex Registration Received",
@@ -255,9 +380,19 @@ func CompleteGoogleRegistration(
 			Status:         "PENDING",
 		}
 
-		if err := repository.EnqueueEmail(tx, &email); err != nil {
-			return fmt.Errorf("enqueue registration email: %w", err)
+		if err := repository.EnqueueEmail(
+			tx,
+			&outboxEmail,
+		); err != nil {
+			return fmt.Errorf(
+				"enqueue registration email: %w",
+				err,
+			)
 		}
+
+		// ----------------------------------------------
+		// Audit log
+		// ----------------------------------------------
 
 		if err := repository.InsertAuditLog(
 			tx,
