@@ -651,7 +651,7 @@ func FulfillReservation(
 		SELECT 1
 		FROM loan AS l
 		WHERE l.user_id = ?
-		  AND l.status = 'BORROWED'
+		  AND l.status = 'OVERDUE'
 		  AND l.due_date < CURRENT_DATE
 	)
 `, reservation.UserID).Scan(&hasOverdueLoan).Error; err != nil {
