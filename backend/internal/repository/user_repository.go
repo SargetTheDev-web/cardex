@@ -73,18 +73,22 @@ func UsernameExists(
 	excludeUserID int,
 ) (bool, error) {
 
-	var count int64
+	var exists bool
 
-	err := db.
-		Table(`"user"`).
-		Where(
-			"username = ? AND user_id <> ?",
-			username,
-			excludeUserID,
-		).
-		Count(&count).Error
+	err := db.Raw(`
+		SELECT EXISTS (
+			SELECT 1
+			FROM "user"
+			WHERE LOWER(username) = LOWER(?)
+			  AND user_id <> ?
+		)
+	`, strings.TrimSpace(username), excludeUserID).Scan(&exists).Error
 
-	return count > 0, err
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
 }
 
 func EmailExists(
