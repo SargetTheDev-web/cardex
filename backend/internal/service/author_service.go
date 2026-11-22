@@ -54,13 +54,16 @@ func validateAuthor(name, biography string) (string, string, error) {
 			ErrInvalidAuthor,
 		)
 	}
+	/*
+		Removed for client compliance
+		if !validateAlphabeticName(name) {
+			return "", "", fmt.Errorf(
+				"%w: author name must contain letters and spaces only",
+				ErrInvalidAuthor,
+			)
+		}
 
-	if !validateAlphabeticName(name) {
-		return "", "", fmt.Errorf(
-			"%w: author name must contain letters and spaces only",
-			ErrInvalidAuthor,
-		)
-	}
+	*/
 
 	if len(name) > 150 {
 		return "", "", fmt.Errorf(
