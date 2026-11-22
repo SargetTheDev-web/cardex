@@ -10,7 +10,7 @@ type BookCopy struct {
 	Barcode       *string   `json:"barcode" gorm:"column:barcode"`
 	ShelfLocation *string   `json:"shelf_location" gorm:"column:shelf_location"`
 	CopyStatus    string    `json:"copy_status" gorm:"column:copy_status;not null"`
-	CreatedAt     time.Time `json:"created_at" gorm:"column:created_at;autoCreateTime:false"`
+	CreatedAt     time.Time `json:"created_at" gorm:"column:created_at;autoCreateTime"`
 }
 
 func (BookCopy) TableName() string {
