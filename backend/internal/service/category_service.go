@@ -59,13 +59,15 @@ func validateCategory(
 			ErrInvalidCategory,
 		)
 	}
-
-	if !validateAlphabeticName(name) {
-		return "", "", fmt.Errorf(
-			"%w: category name must contain letters and spaces only",
-			ErrInvalidCategory,
-		)
-	}
+	/*
+		Removed for client compliance
+		if !validateAlphabeticName(name) {
+			return "", "", fmt.Errorf(
+				"%w: category name must contain letters and spaces only",
+				ErrInvalidCategory,
+			)
+		}
+	*/
 
 	if len(name) > 100 {
 		return "", "", fmt.Errorf(
