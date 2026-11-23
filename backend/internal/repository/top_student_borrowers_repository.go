@@ -64,9 +64,17 @@ func GetTopStudentBorrowers(
 				MAX(l.loan_date) AS last_borrow_date,
 
 				COUNT(l.loan_id) FILTER (
-					WHERE l.return_date IS NULL
-					  AND l.due_date < CURRENT_DATE
-				)::BIGINT AS overdue_count
+    WHERE
+        (
+            l.return_date IS NOT NULL
+            AND l.return_date > l.due_date
+        )
+        OR
+        (
+            l.return_date IS NULL
+            AND l.due_date < CURRENT_DATE
+        )
+)::BIGINT AS overdue_count
 
 			FROM "user" u
 

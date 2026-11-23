@@ -76,6 +76,12 @@ func (s *NotificationService) RunEmailOutboxWorker(ctx context.Context) {
 			success = false
 		}
 
+		// Process expired reservations and release reserved copies.
+		if err := s.ProcessExpiredReservations(); err != nil {
+			log.Printf("reservation expiration job failed: %v", err)
+			success = false
+		}
+
 		if success {
 			log.Printf(
 				"hourly loan notification processing completed for %s",

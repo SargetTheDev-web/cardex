@@ -760,29 +760,6 @@ func FulfillReservation(
 	return &result, nil
 }
 
-// Call this from a scheduled job as well as queue/fulfillment operations.
-func ExpireReservations(db *gorm.DB) error {
-	return db.Transaction(expireReservationsTx)
-}
-
-func expireReservationsTx(tx *gorm.DB) error {
-	return tx.Exec(`
-		WITH expired AS (
-			UPDATE reservation
-			SET status = 'CANCELLED'
-			WHERE status = 'NOTIFIED'
-			  AND expiry_date IS NOT NULL
-			  AND expiry_date <= CURRENT_TIMESTAMP
-			RETURNING copy_id
-		)
-		UPDATE book_copy AS c
-		SET copy_status = 'AVAILABLE'
-		FROM expired AS e
-		WHERE c.copy_id = e.copy_id
-		  AND c.copy_status = 'RESERVED'
-	`).Error
-}
-
 func notifyReservationDecision(
 	tx *gorm.DB,
 	reservation *model.Reservation,
@@ -909,4 +886,49 @@ func notifyReservationDecision(
 	}
 
 	return nil
+}
+
+// ProcessExpiredReservations automatically expires unclaimed reservations
+// and releases their associated reserved copies.
+func (s *NotificationService) ProcessExpiredReservations() error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		return expireReservationsTx(tx)
+	})
+}
+
+// Call this from queue/fulfillment operations as well.
+func ExpireReservations(db *gorm.DB) error {
+	if db == nil {
+		return errors.New("database connection is nil")
+	}
+
+	return db.Transaction(expireReservationsTx)
+}
+
+func expireReservationsTx(tx *gorm.DB) error {
+	if tx == nil {
+		return errors.New("transaction is nil")
+	}
+
+	return tx.Exec(`
+		WITH expired AS (
+			UPDATE reservation
+			SET status = 'CANCELLED'
+			WHERE reservation_id IN (
+				SELECT reservation_id
+				FROM reservation
+				WHERE status = 'NOTIFIED'
+				  AND expiry_date IS NOT NULL
+				  AND expiry_date <= CURRENT_TIMESTAMP
+				FOR UPDATE SKIP LOCKED
+			)
+			RETURNING copy_id
+		)
+		UPDATE book_copy AS c
+		SET copy_status = 'AVAILABLE'
+		FROM expired AS e
+		WHERE c.copy_id = e.copy_id
+		  AND c.copy_status = 'RESERVED'
+		  AND e.copy_id IS NOT NULL
+	`).Error
 }
