@@ -520,6 +520,18 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB) {
 		handler.GetUserReportHandler(db),
 	)
 
+	protected.GET(
+		"/reports/top-borrowed-books",
+		require("DASHBOARD_VIEW_ANALYTICS"),
+		handler.GetTopBorrowedBooksHandler(db),
+	)
+
+	protected.GET(
+		"/reports/top-student-borrowers",
+		require("DASHBOARD_VIEW_ANALYTICS"),
+		handler.GetTopStudentBorrowersHandler(db),
+	)
+
 	librarian.GET(
 		"/get-all-notifications",
 		handler.GetAllNotificationsHandler(db),

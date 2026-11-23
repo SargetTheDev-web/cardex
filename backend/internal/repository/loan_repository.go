@@ -91,6 +91,7 @@ type RecentTransaction struct {
 	LoanID     int64      `json:"loan_id"`
 	UserID     int        `json:"user_id"`
 	BookTitle  string     `json:"book_title"`
+	ISBN       *string    `json:"isbn"`
 	Borrower   string     `json:"borrower"`
 	Status     string     `json:"status"`
 	LoanDate   time.Time  `json:"loan_date"`
@@ -109,6 +110,7 @@ func GetRecentTransactions(
 			l.loan_id,
 			l.user_id,
 			b.title AS book_title,
+			b.isbn AS isbn,
 			COALESCE(
 				NULLIF(
 					BTRIM(
