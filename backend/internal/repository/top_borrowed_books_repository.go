@@ -3,6 +3,8 @@
 package repository
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -24,6 +26,8 @@ type TopBorrowedBooksResult struct {
 
 func GetTopBorrowedBooks(
 	db *gorm.DB,
+	from time.Time,
+	to time.Time,
 ) (TopBorrowedBooksResult, error) {
 
 	result := TopBorrowedBooksResult{
@@ -34,6 +38,7 @@ func GetTopBorrowedBooks(
 		WITH total_borrows AS (
 			SELECT COUNT(*)::BIGINT AS total
 			FROM loan
+			WHERE loan_date BETWEEN ? AND ?
 		),
 
 		book_stats AS (
@@ -41,7 +46,6 @@ func GetTopBorrowedBooks(
 				b.book_id,
 				b.title AS book_title,
 				b.isbn,
-
 				c.category_name AS subject,
 
 				COALESCE(
@@ -71,6 +75,8 @@ func GetTopBorrowedBooks(
 
 			LEFT JOIN author a
 				ON a.author_id = ba.author_id
+
+			WHERE l.loan_date BETWEEN ? AND ?
 
 			GROUP BY
 				b.book_id,
@@ -125,17 +131,23 @@ func GetTopBorrowedBooks(
 		WHERE rb.rank <= 10
 
 		ORDER BY rb.rank ASC
-	`).Scan(&result.Books).Error
+	`,
+		from,
+		to,
+		from,
+		to,
+	).Scan(&result.Books).Error
 
 	if err != nil {
 		return result, err
 	}
 
-	// Total borrow transactions across the library.
+	// Total borrowing transactions within the selected date range.
 	err = db.Raw(`
 		SELECT COUNT(*)::BIGINT
 		FROM loan
-	`).Scan(&result.TotalBorrows).Error
+		WHERE loan_date BETWEEN ? AND ?
+	`, from, to).Scan(&result.TotalBorrows).Error
 
 	if err != nil {
 		return result, err

@@ -18,22 +18,28 @@ type TopBorrowedBooksReport struct {
 type TopBorrowedBooksMeta struct {
 	IsLive       bool      `json:"is_live"`
 	GeneratedAt  time.Time `json:"generated_at"`
+	DateFrom     string    `json:"date_from"`
+	DateTo       string    `json:"date_to"`
 	TotalBorrows int64     `json:"total_borrows"`
 }
 
 func GetTopBorrowedBooksReport(
 	db *gorm.DB,
+	from time.Time,
+	to time.Time,
 ) (TopBorrowedBooksReport, error) {
 
 	report := TopBorrowedBooksReport{
 		Meta: TopBorrowedBooksMeta{
 			IsLive:      true,
 			GeneratedAt: time.Now().UTC(),
+			DateFrom:    from.Format("2006-01-02"),
+			DateTo:      to.Format("2006-01-02"),
 		},
 		Books: make([]repository.TopBorrowedBookRow, 0),
 	}
 
-	result, err := repository.GetTopBorrowedBooks(db)
+	result, err := repository.GetTopBorrowedBooks(db, from, to)
 	if err != nil {
 		return report, err
 	}

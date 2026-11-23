@@ -1,3 +1,5 @@
+// internal/repository/top_student_borrowers_repository.go
+
 package repository
 
 import (
@@ -24,6 +26,8 @@ type TopStudentBorrowersResult struct {
 
 func GetTopStudentBorrowers(
 	db *gorm.DB,
+	from time.Time,
+	to time.Time,
 ) (TopStudentBorrowersResult, error) {
 
 	result := TopStudentBorrowersResult{
@@ -64,17 +68,17 @@ func GetTopStudentBorrowers(
 				MAX(l.loan_date) AS last_borrow_date,
 
 				COUNT(l.loan_id) FILTER (
-    WHERE
-        (
-            l.return_date IS NOT NULL
-            AND l.return_date > l.due_date
-        )
-        OR
-        (
-            l.return_date IS NULL
-            AND l.due_date < CURRENT_DATE
-        )
-)::BIGINT AS overdue_count
+					WHERE
+						(
+							l.return_date IS NOT NULL
+							AND l.return_date > l.due_date
+						)
+						OR
+						(
+							l.return_date IS NULL
+							AND l.due_date < CURRENT_DATE
+						)
+				)::BIGINT AS overdue_count
 
 			FROM "user" u
 
@@ -85,6 +89,7 @@ func GetTopStudentBorrowers(
 				ON l.user_id = u.user_id
 
 			WHERE u.role_id = 5
+			  AND l.loan_date BETWEEN ? AND ?
 
 			GROUP BY
 				u.user_id,
@@ -141,7 +146,7 @@ func GetTopStudentBorrowers(
 		WHERE rs.rank <= 10
 
 		ORDER BY rs.rank ASC
-	`).Scan(&result.Students).Error
+	`, from, to).Scan(&result.Students).Error
 
 	if err != nil {
 		return result, err
