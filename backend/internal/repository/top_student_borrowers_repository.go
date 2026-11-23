@@ -1,5 +1,3 @@
-// internal/repository/top_student_borrowers_repository.go
-
 package repository
 
 import (
@@ -132,7 +130,7 @@ func GetTopStudentBorrowers(
 
 		FROM ranked_students rs
 
-		WHERE rs.rank <= 5
+		WHERE rs.rank <= 10
 
 		ORDER BY rs.rank ASC
 	`).Scan(&result.Students).Error
