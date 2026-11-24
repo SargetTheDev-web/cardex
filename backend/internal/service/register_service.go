@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log"
 	"math/big"
 	"strings"
 	"time"
@@ -443,6 +444,7 @@ func CompleteRegistration(
 		)
 
 		if err == nil && existingUsername != nil {
+			log.Println("Aha I see you Username has been duplicated in manual register")
 			return errors.New(
 				"username already in use",
 			)

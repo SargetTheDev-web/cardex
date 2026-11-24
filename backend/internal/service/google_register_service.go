@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -248,6 +249,7 @@ func CompleteGoogleRegistration(
 		}
 
 		if usernameExists {
+			log.Println("Aha I see you Username has been duplicated in SSO register")
 			return errors.New("username already exists")
 		}
 
