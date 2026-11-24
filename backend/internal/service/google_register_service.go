@@ -268,6 +268,7 @@ func CompleteGoogleRegistration(
 		}
 
 		if institutionalIDExists {
+			log.Println("Aha I see you Insti ID has been duplicated in SSO register")
 			return errors.New("Student/Faculty ID already exists")
 		}
 
