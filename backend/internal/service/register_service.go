@@ -473,6 +473,7 @@ func CompleteRegistration(
 		}
 
 		if exists {
+			log.Println("Aha I see you Insti ID has been duplicated in manual registration")
 			return errors.New(
 				"Student/Faculty ID already exists",
 			)
